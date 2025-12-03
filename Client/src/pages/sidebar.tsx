@@ -126,7 +126,7 @@ const SidebarMobile: React.FC<SidebarProps> = ({ darkMode, setDarkMode }) => {
     <div
       className={`w-screen ${
         darkMode ? "bg-zinc-950" : "bg-zinc-50"
-      } h-max mt-1 fixed py-3 px-2 z-10 flex items-center bottom-0 justify-between`}
+      } h-max mt-1 fixed py-3 px-5 z-10 flex items-center bottom-0 justify-between`}
       style={{
         boxShadow: darkMode
           ? "rgba(255, 255, 255, 0.04) -1px -12px 20px 0px"
@@ -151,7 +151,7 @@ const SidebarMobile: React.FC<SidebarProps> = ({ darkMode, setDarkMode }) => {
       )}
 
       {/* Links */}
-      <div className="flex items-center gap-10">
+      <div className="flex items-center gap-7">
         {LINKS.map((link, idx) => {
           const active = location.pathname === link.link;
 
@@ -160,14 +160,14 @@ const SidebarMobile: React.FC<SidebarProps> = ({ darkMode, setDarkMode }) => {
               key={idx}
               className={`relative flex items-center group transition-all duration-100 ${
                 active
-                  ? "bg-zinc-800 rounded-full text-black -translate-y-2"
+                  ? "bg-zinc-800 rounded-full text-white -translate-y-2"
                   : "bg-transparent"
               }`}
             >
               <Link
                 to={link.link}
                 className={`p-3 rounded-full ${
-                  darkMode ? "text-white" : "text-black"
+                  darkMode ? "text-white" : active ? "text-white" : "text-black"
                 }`}
               >
                 {link.icon}

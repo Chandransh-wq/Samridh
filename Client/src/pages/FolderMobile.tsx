@@ -276,13 +276,15 @@ const FolderMobile: React.FC<FolderMobileProps> = ({ darkMode }) => {
         <AnimatePresence>
           {selected !== -1 && (
             <motion.div
-              initial={{ scale: 0, y: 1000 }}
+              initial={{ scale: 0, y: 5000 }}
               animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0, y: 1000 }}
+              exit={{ scale: 0, y: 5000 }}
               transition={{ duration: 0.25, ease: "easeOut" }}
               className={`absolute min-h-screen h-full w-full z-9999 top-0 left-0 ${
                 darkMode ? Theme.dark.background : Theme.light.background
-              } font-semibold text-black`}
+              } font-semibold text-black ${
+                selected !== -1 ? "block" : "hidden"
+              }`}
             >
               <div
                 className={`flex flex-row w-[calc(100%-2rem)] justify-between fixed items-center text-left mb-16 text-lg z-999 px-5 py-5 ${
