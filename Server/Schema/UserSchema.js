@@ -29,15 +29,17 @@ const userSchema = new mongoose.Schema({
 });
 
 // hash password before saving
-userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
-  this.password = await bcrypt.hash(this.password, 10);
-  next();
+userSchema.pre("save", async function () {
+  if (!this.isModified("password")) {
+    return; // Simply return if no modification is made
+  }
+  this.password = bcrypt.hash(this.password, 10);
+  // Function ends implicitly, Mongoose handles flow
 });
 
 // verify password
-userSchema.methods.comparePassword = function (plain) {
-  return bcrypt.compare(plain, this.password);
+userSchema.methods.comparePassword = function (pass) {
+  return bcrypt.compare(pass, this.password);
 };
 
 export default mongoose.models.User || mongoose.model("User", userSchema);

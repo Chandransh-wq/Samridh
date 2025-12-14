@@ -2,8 +2,8 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 const connectDB = require("./db");
-
-const authRoutes = require("./Routes/Auth");
+const { default: Auth } = require("./Routes/Auth");
+const { default: router } = require("./Routes/UserRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -23,8 +23,8 @@ app.use(
 );
 app.use(express.json());
 
-app.use("/api/auth", authRoutes);
-app.use("/api/create", folderRoutes);
+app.use("/auth", Auth);
+app.use("/user", router);
 
 app.get("/", (req, res) => {
   res.send("Welcome to HEELOS backend!");
