@@ -7,9 +7,9 @@ const router = express.Router();
 
 const generateToken = (id) => {
   // Sign the token with the user ID as the payload, the secret key, and an expiration time
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
+  return `Bearer ${jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: "1h", // Token expires in 1 hour
-  });
+  })}`;
 };
 
 router.post("/register", async (req, res) => {
