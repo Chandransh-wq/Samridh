@@ -1,9 +1,8 @@
 import React from "react";
-import { getInitials } from "../assets/functions";
+import { getInitials } from "../assets/BaasicFunctions";
 import { FaFolder, FaHome, FaMap, FaMoon, FaSun } from "react-icons/fa";
 import { Link, useLocation } from "react-router-dom";
 import { Theme } from "../assets/Theme";
-import { userInfo } from "../assets/DemoData";
 import Tooltip from "../Components/Tooltip";
 
 interface SidebarProps {
@@ -22,6 +21,9 @@ const LINKS = [
 const SidebarDesktop: React.FC<SidebarProps> = ({ darkMode, setDarkMode }) => {
   const location = useLocation();
 
+  const l = localStorage.getItem("User");
+  const user = JSON.parse(l ?? "");
+
   return (
     <div
       className={`w-fit ${
@@ -35,9 +37,9 @@ const SidebarDesktop: React.FC<SidebarProps> = ({ darkMode, setDarkMode }) => {
     >
       {/* Account details */}
       <div className="relative flex items-center justify-center group">
-        {userInfo.avatar ? (
+        {user.avatarURL ? (
           <img
-            src={userInfo.avatar}
+            src={user.avatarURL}
             alt="avatar"
             className="w-8 h-8 rounded-full mt-2 border-2 border-white dark:border-gray-700"
           />
@@ -47,7 +49,7 @@ const SidebarDesktop: React.FC<SidebarProps> = ({ darkMode, setDarkMode }) => {
               darkMode ? Theme.dark.accent : Theme.light.accent
             }`}
           >
-            {getInitials(userInfo.name)}
+            {getInitials(user.username)}
           </div>
         )}
 
@@ -60,12 +62,12 @@ const SidebarDesktop: React.FC<SidebarProps> = ({ darkMode, setDarkMode }) => {
           }`}
         >
           <div className="flex flex-col gap-1 min-w-[180px]">
-            <span className="font-semibold text-sm">{userInfo.name}</span>
+            <span className="font-semibold text-sm">{user.userName}</span>
             <span className="text-xs text-gray-400 dark:text-gray-300">
-              @{userInfo.username}
+              @{user.username}
             </span>
             <span className="text-xs text-gray-400 dark:text-gray-300">
-              {userInfo.email}
+              {user.email}
             </span>
           </div>
         </div>
@@ -122,6 +124,9 @@ const SidebarDesktop: React.FC<SidebarProps> = ({ darkMode, setDarkMode }) => {
 const SidebarMobile: React.FC<SidebarProps> = ({ darkMode, setDarkMode }) => {
   const location = useLocation();
 
+  const l = localStorage.getItem("User");
+  const user = JSON.parse(l ?? "");
+
   return (
     <div
       className={`w-screen ${
@@ -134,9 +139,9 @@ const SidebarMobile: React.FC<SidebarProps> = ({ darkMode, setDarkMode }) => {
       }}
     >
       {/* Avatar / Initials (mobile) */}
-      {userInfo.avatar ? (
+      {user.avatarURL ? (
         <img
-          src={userInfo.avatar}
+          src={user.avatarURL}
           alt="avatar"
           className="w-10 h-10 rounded-full border-2 border-white dark:border-gray-700"
         />
@@ -146,7 +151,7 @@ const SidebarMobile: React.FC<SidebarProps> = ({ darkMode, setDarkMode }) => {
             darkMode ? Theme.dark.accent : Theme.light.accent
           }`}
         >
-          {getInitials(userInfo.name)}
+          {getInitials(user.name)}
         </div>
       )}
 

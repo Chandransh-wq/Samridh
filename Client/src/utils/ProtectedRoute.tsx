@@ -5,9 +5,9 @@ interface ProtectedProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedProps> = ({ children }) => {
-  const isAuth = localStorage.getItem("token") == "true";
+  const isAuth = localStorage.getItem("token") == "";
 
-  if (!isAuth) return <Navigate to="/login" replace />;
+  if (isAuth) return <Navigate to="/login" replace />;
 
   // If children exist, render them; otherwise render nested routes via <Outlet>
   return <>{children ? children : <Outlet />}</>;

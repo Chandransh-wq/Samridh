@@ -8,62 +8,71 @@ import {
   FaTag,
 } from "react-icons/fa";
 import { Theme } from "../assets/Theme";
-import { folderData, userInfo } from "../assets/DemoData";
 import {
   findfolderByPageId,
   getInitials,
   getRandomColor,
   illustration,
-  pages,
-  tagCounts,
-  totalFavorites,
-  totalfolders,
-  totalPages,
-} from "../assets/functions";
+  getMetrics,
+} from "../assets/BaasicFunctions";
 import { FiArrowRight, FiHeart, FiLogOut } from "react-icons/fi";
 import { logoutUser } from "../utils/authServies";
 import { useNavigate } from "react-router-dom";
 import Notification from "../Components/notification";
 import Tooltip from "../Components/Tooltip";
+import { allFolders } from "../assets/Services/user.service";
 
 interface HomeDesktopProps {
   darkMode: boolean;
 }
 
 // Compute top tag
-const topTag = Object.entries(tagCounts).sort((a, b) => b[1] - a[1])[0]; // ["Math", 12]
-
-// Then your data array
-const data = [
-  {
-    length: totalfolders,
-    name: "folders",
-    icon: <FaBook />,
-    color: "bg-blue-500",
-  },
-  {
-    length: totalPages,
-    name: "Pages",
-    icon: <FaFile />,
-    color: "bg-green-700",
-  },
-  {
-    length: totalFavorites,
-    name: "Favourites",
-    icon: <FaFile />,
-    color: "bg-red-500",
-  },
-  {
-    length: topTag ? `${topTag[0]} (${topTag[1]})` : "-",
-    name: "Top Tag",
-    icon: <FaTag />,
-    color: "bg-yellow-500",
-  },
-];
-
 const HomeDesktop: React.FC<HomeDesktopProps> = ({ darkMode }) => {
   const navigate = useNavigate();
   const [openNoti, setOpenNoti] = useState(false);
+  const folderData = allFolders();
+
+  // 1. Get all metrics and pages from the data
+  const { totalFolders, totalPages, totalFavorites, tagCounts, pages } =
+    getMetrics(folderData);
+
+  // 2. Compute the top tag entry
+  const topTagEntry = Object.entries(tagCounts).sort((a, b) => b[1] - a[1])[0];
+
+  // 3. Define the stats array inside the component scope
+  const data = [
+    {
+      length: totalFolders,
+      name: "folders",
+      icon: <FaBook />,
+      color: "bg-blue-500",
+    },
+    {
+      length: totalPages,
+      name: "Pages",
+      icon: <FaFile />,
+      color: "bg-green-700",
+    },
+    {
+      length: totalFavorites,
+      name: "Favourites",
+      icon: <FaHeart />,
+      color: "bg-red-500",
+    },
+    {
+      length: topTagEntry ? `${topTagEntry[0]} (${topTagEntry[1]})` : "-",
+      name: "Top Tag",
+      icon: <FaTag />,
+      color: "bg-yellow-500",
+    },
+  ];
+
+  // 4. Handle User data safely
+  const l = localStorage.getItem("User");
+  const user = l ? JSON.parse(l) : { username: "Guest" };
+
+  // UI rendering continues here...
+
   return (
     <div
       className={`${
@@ -184,7 +193,8 @@ const HomeDesktop: React.FC<HomeDesktopProps> = ({ darkMode }) => {
                     <div
                       className={`h-4 w-4 rounded-full`}
                       style={{
-                        background: findfolderByPageId(page.id)?.color,
+                        background: findfolderByPageId(folderData, page.id)
+                          ?.color,
                       }}
                     />
                     <div>{page.page}</div>
@@ -250,9 +260,9 @@ const HomeDesktop: React.FC<HomeDesktopProps> = ({ darkMode }) => {
                 } mx-2 mt-3 p-3 rounded-2xl flex flex-row gap-5 items-center`}
               >
                 <div className="h-9 w-9 rounded-full overflow-hidden flex items-center justify-center">
-                  {userInfo.avatar ? (
+                  {user.avatarURL ? (
                     <img
-                      src={userInfo.avatar}
+                      src={user.avatarURL}
                       alt="avatar"
                       className="w-full h-full object-cover"
                     />
@@ -264,7 +274,7 @@ const HomeDesktop: React.FC<HomeDesktopProps> = ({ darkMode }) => {
                           : `${Theme.light.accent} text-white`
                       } shadow-md`}
                     >
-                      {getInitials(userInfo.name)}
+                      {getInitials(user.userName)}
                     </div>
                   )}
                 </div>
@@ -275,14 +285,14 @@ const HomeDesktop: React.FC<HomeDesktopProps> = ({ darkMode }) => {
                       darkMode ? "text-zinc-50" : "text-zinc-800"
                     }  font-semibold`}
                   >
-                    {userInfo.name}
+                    {user.username}
                   </div>
                   <div
                     className={`text-sm text-left ${
                       darkMode ? "text-zinc-200/90" : "text-zinc-700/90"
                     }`}
                   >
-                    {userInfo.email}
+                    {user.email}
                   </div>
                 </div>
               </div>

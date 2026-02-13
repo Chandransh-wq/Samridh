@@ -6,7 +6,7 @@ import {
   COLORS_Light,
   getRandomColor,
   illustration,
-} from "../assets/functions";
+} from "../assets/BaasicFunctions";
 import { FiHeart, FiLogOut } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import { logoutUser } from "../utils/authServies";

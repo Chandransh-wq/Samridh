@@ -6,17 +6,18 @@ import {
   COLORS_Light,
   getRandomColor,
   illustration,
-} from "../assets/functions";
+} from "../assets/BaasicFunctions";
 import { FiHeart, FiLogOut } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import { logoutUser } from "../utils/authServies";
 import DropDown from "../Components/DropDown";
 import { AnimatePresence, motion } from "framer-motion";
 import Input from "../Components/Input";
-import { createFolder, createPage } from "../utils/folderServices";
+import { createPage } from "../utils/folderServices";
 import Pages from "./Page";
 import Notification from "../Components/notification";
 import Tooltip from "../Components/Tooltip";
+import { createFolder } from "../assets/Services/user.service";
 
 interface FolderProps {
   darkMode: boolean;
@@ -81,7 +82,7 @@ const FolderDesktop: React.FC<FolderProps> = ({ darkMode }) => {
         icon: <div></div>,
         pages: [],
       };
-      createFolder(newFolder);
+      createFolder(newFolder, darkMode);
       setFolders((prev) => [...prev, newFolder]);
     } else if (selectedOption === "Topic") {
       const newPage: Page = {

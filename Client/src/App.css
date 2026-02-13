@@ -5,3 +5,43 @@
   margin: 0 auto;
   text-align: center;
 }
+
+/* 1. The Container handles the 'trail' effect using a blur filter */
+.path-container {
+  position: relative;
+  filter: contrast(20); /* Sharpens the blur into a solid line */
+  background: white; /* Required for the contrast filter to work */
+  height: 500px;
+}
+
+#blob {
+  width: max-content;
+  height: max-content;
+  border-radius: 50%;
+
+  /* This creates the 'liquid' trail */
+
+  animation: draw 4s ease-in-out infinite;
+}
+
+@keyframes draw {
+  0% {
+    transform: translate(0, 10rem) rotate(-30deg);
+  }
+  10% {
+    transform: translate(1rem, 5rem) rotate(-15deg);
+  }
+  45% {
+    /* Combined your vertical and horizontal movement into one transform */
+    transform: translate(-4rem, 7rem) rotate(45deg);
+  }
+  65% {
+    transform: translate(4rem, 12rem) rotate(90deg);
+  }
+  85% {
+    transform: translate(0, 16rem) rotate(30deg);
+  }
+  100% {
+    transform: translate(0, 10rem) rotate(-30deg);
+  }
+}

@@ -16,52 +16,60 @@ import NotificationMobile from "../Components/notificationMobile";
 import {
   getRandomColor,
   illustration,
-  tagCounts,
-  topTags,
-  totalFavorites,
-  totalfolders,
-  totalPages,
-} from "../assets/functions";
+  getMetrics,
+} from "../assets/BaasicFunctions";
 import { folderData } from "../assets/DemoData";
 
 interface HomeMobileProps {
   darkMode: boolean;
 }
 
-const topTag = Object.entries(tagCounts).sort((a, b) => b[1] - a[1])[0];
-
-const data = [
-  {
-    length: totalfolders,
-    name: "folders",
-    icon: <FaBook />,
-    color: "bg-blue-500",
-  },
-  {
-    length: totalPages,
-    name: "Pages",
-    icon: <FaFile />,
-    color: "bg-green-700",
-  },
-  {
-    length: totalFavorites,
-    name: "Favourites",
-    icon: <FaFile />,
-    color: "bg-red-500",
-  },
-  {
-    length: topTags ? `${topTag[0]} (${topTag[1]})` : "-",
-    name: "Top Tag",
-    icon: <FaTag />,
-    color: "bg-yellow-500",
-  },
-];
-
 const HomeMobile: React.FC<HomeMobileProps> = ({ darkMode }) => {
   const [openNoti, setOpenNoti] = useState(false);
   const navigate = useNavigate();
 
+  // 1. Calculate metrics inside the component scope
+  const { totalFolders, totalPages, totalFavorites, tagCounts, pages } =
+    getMetrics(folderData);
+
+  // 2. Compute the top tag entry safely
+  const topTagEntry = Object.entries(tagCounts).sort((a, b) => b[1] - a[1])[0];
+
+  // 3. Define the stats data array inside the component
+  const statsData = [
+    {
+      length: totalFolders,
+      name: "folders",
+      icon: <FaBook />,
+      color: "bg-blue-500",
+    },
+    {
+      length: totalPages,
+      name: "Pages",
+      icon: <FaFile />,
+      color: "bg-green-700",
+    },
+    {
+      length: totalFavorites,
+      name: "Favourites",
+      icon: <FaHeart />, // Changed to FaHeart for consistency
+      color: "bg-red-500",
+    },
+    {
+      length: topTagEntry ? `${topTagEntry[0]} (${topTagEntry[1]})` : "-",
+      name: "Top Tag",
+      icon: <FaTag />,
+      color: "bg-yellow-500",
+    },
+  ];
+
+  // 4. Handle user data safely
+  const l = localStorage.getItem("User");
+  const user = l ? JSON.parse(l) : { username: "Guest" };
+
   return (
+    // Your Mobile UI starts here...
+
     <div
       className={`${
         darkMode ? "bg-[#111111ed]" : "bg-white"
@@ -135,7 +143,7 @@ const HomeMobile: React.FC<HomeMobileProps> = ({ darkMode }) => {
         <div className="w-full flex flex-col pb-20">
           {/* CARDS */}
           <div className="flex flex-col w-full gap-4 mt-4 px-4">
-            {data.map((card, idx) => (
+            {folderData.map((card, idx) => (
               <div
                 key={idx}
                 className={`

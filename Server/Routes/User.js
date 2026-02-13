@@ -121,12 +121,10 @@ router.patch("/folder-update/:folderID", protectRoute, async (req, res) => {
       .json({ message: "Folder updated successfully", data: updatedFolder });
   } catch (error) {
     console.error(error);
-    res
-      .status(500)
-      .json({
-        message: "Server error during folder update",
-        error: error.message,
-      });
+    res.status(500).json({
+      message: "Server error during folder update",
+      error: error.message,
+    });
   }
 });
 
@@ -142,7 +140,6 @@ router.patch("/page-update/:pageID", protectRoute, async (req, res) => {
 
   try {
     // We need to check both the page's existence AND if the user owns the parent folder.
-    // This requires a slightly more complex check if we want to do it in one query.
     // A common pattern is to just update the page directly and rely on security rules,
     // but since we linked folders to users, we will do a two-step check for security.
 

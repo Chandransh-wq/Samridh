@@ -71,6 +71,7 @@ router.post("/login", async (req, res) => {
     const response = user.toObject();
     delete response.password;
 
+    console.log("status 200, logged in, ", response, "    ", token);
     return res
       .status(200)
       .json({ message: "Logged IN", user: response, token: token });
