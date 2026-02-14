@@ -17,7 +17,7 @@ interface PageProps {
   onUpdateTitle: (
     pageIndex: number,
     newTitle: string,
-    newContent?: string
+    newContent?: string,
   ) => void;
 }
 
@@ -43,13 +43,20 @@ const Pages: React.FC<PageProps> = ({
 
   const [editingTitle, setEditingTitle] = useState(false);
   const [editingContent, setEditingContent] = useState(false);
-  const [title, setTitle] = useState(page[index]?.page);
-  const [content, setContent] = useState(page[index]?.pageContent);
+  // 1. Safe state initialization
+  const [title, setTitle] = useState(
+    page && page[index] ? page[index].page : "",
+  );
+  const [content, setContent] = useState(
+    page && page[index] ? page[index].pageContent : "",
+  );
 
-  // Sync with page change
+  // 2. Safe useEffect sync (Line 46)
   useEffect(() => {
-    setTitle(page[index].page);
-    setContent(page[index].pageContent);
+    if (page && page[index]) {
+      setTitle(page[index].page);
+      setContent(page[index].pageContent);
+    }
   }, [index, page]);
 
   const saveTitle = () => {
@@ -148,8 +155,8 @@ const Pages: React.FC<PageProps> = ({
                     <span className="font-semibold text-lg mb-2">{p.page}</span>
 
                     <p className="text-sm opacity-80 leading-snug">
-                      {p.pageContent.slice(0, 75)}
-                      {p.pageContent.length > 75 ? "..." : ""}
+                      {p.pageContent?.slice(0, 75)}
+                      {p.pageContent?.length > 75 ? "..." : ""}
                     </p>
 
                     <div className="flex gap-2 flex-wrap mt-2">
@@ -166,20 +173,26 @@ const Pages: React.FC<PageProps> = ({
                     <div className="text-xs opacity-50 mt-2 flex flex-col">
                       <span>
                         Created:{" "}
-                        {new Date(p.createdAt).toLocaleDateString("en-US", {
-                          weekday: "long",
-                          day: "numeric",
-                          month: "short",
-                        })}
+                        {new Date(p.createdAt || Date.now()).toLocaleDateString(
+                          "en-US",
+                          {
+                            weekday: "long",
+                            day: "numeric",
+                            month: "short",
+                          },
+                        )}
                       </span>
 
                       <span>
                         Last Edited:{" "}
-                        {new Date(p.editedAt).toLocaleDateString("en-US", {
-                          weekday: "long",
-                          day: "numeric",
-                          month: "short",
-                        })}
+                        {new Date(p.updatedAt || Date.now()).toLocaleDateString(
+                          "en-US",
+                          {
+                            weekday: "long",
+                            day: "numeric",
+                            month: "short",
+                          },
+                        )}
                       </span>
                     </div>
                   </div>

@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { Theme } from "../assets/Theme";
 import clsx from "clsx";
 // Optional: install lucide-react for icons, or use text like I did below
 import { GoEye, GoEyeClosed } from "react-icons/go";
@@ -41,7 +40,7 @@ const Input: React.FC<inputProps> = ({
           }
           ${darkMode ? "text-white" : "text-black"}`,
           !isFloating && (darkMode ? "text-gray-400" : "text-gray-500"),
-          className
+          className,
         )}
       >
         {placeholder}
@@ -65,7 +64,7 @@ const Input: React.FC<inputProps> = ({
                 ? `bg-gray-800 border-gray-700 focus:border-blue-500 text-white`
                 : `bg-white border-gray-300 focus:border-blue-600 text-black`
             }`,
-            className
+            className,
           )}
         />
 

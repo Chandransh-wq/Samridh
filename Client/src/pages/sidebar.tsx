@@ -41,7 +41,7 @@ const SidebarDesktop: React.FC<SidebarProps> = ({ darkMode, setDarkMode }) => {
           <img
             src={user.avatarURL}
             alt="avatar"
-            className="w-8 h-8 rounded-full mt-2 border-2 border-white dark:border-gray-700"
+            className="w-10 h-10 rounded-full mt-2 border-2 border-white dark:border-gray-700"
           />
         ) : (
           <div
@@ -89,8 +89,8 @@ const SidebarDesktop: React.FC<SidebarProps> = ({ darkMode, setDarkMode }) => {
                   active
                     ? "bg-zinc-800"
                     : darkMode
-                    ? "text-white"
-                    : "text-black"
+                      ? "text-white"
+                      : "text-black"
                 }`}
               >
                 {link.icon}
@@ -131,7 +131,7 @@ const SidebarMobile: React.FC<SidebarProps> = ({ darkMode, setDarkMode }) => {
     <div
       className={`w-screen ${
         darkMode ? "bg-zinc-950" : "bg-zinc-50"
-      } h-max mt-1 fixed py-3 px-5 z-10 flex items-center bottom-0 justify-between`}
+      } h-max mt-1 fixed py-3 px-5 z-10 flex items-center bottom-[0rem] justify-between`}
       style={{
         boxShadow: darkMode
           ? "rgba(255, 255, 255, 0.04) -1px -12px 20px 0px"

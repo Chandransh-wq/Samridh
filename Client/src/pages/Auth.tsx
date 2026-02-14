@@ -10,7 +10,7 @@ interface authProps {
 const Auth: React.FC<authProps> = ({ darkMode }) => {
   const navigate = useNavigate();
 
-  const [registering, setRegistering] = useState(true);
+  const [registering, setRegistering] = useState(false);
   const [userName, setUserName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

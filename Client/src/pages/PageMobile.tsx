@@ -1,10 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { type folder, type Page as PageType } from "../assets/DemoData";
-import { Theme } from "../assets/Theme";
 import { AnimatePresence, motion } from "framer-motion";
-import Toolbar from "../Components/Toolbar";
 import { FiArrowDown, FiArrowUp, FiDownload, FiSearch } from "react-icons/fi";
-import Tooltip from "../Components/Tooltip";
 
 interface PageProps {
   page: PageType[];
@@ -17,7 +14,7 @@ interface PageProps {
   onUpdateTitle: (
     pageIndex: number,
     newTitle: string,
-    newContent?: string
+    newContent?: string,
   ) => void;
 }
 
@@ -31,10 +28,10 @@ const PageMobile: React.FC<PageProps> = ({
 }) => {
   const [index, setIndex] = useState(selected ?? 0);
 
+  // Sync with page change logic
   useEffect(() => {
     if (open) document.body.style.overflowY = "hidden";
     else document.body.style.overflowY = "auto";
-
     return () => {
       document.body.style.overflowY = "auto";
     };
@@ -42,12 +39,11 @@ const PageMobile: React.FC<PageProps> = ({
 
   const [editingTitle, setEditingTitle] = useState(false);
   const [editingContent, setEditingContent] = useState(false);
-  const [title, setTitle] = useState(page[index]?.page);
-  const [content, setContent] = useState(page[index]?.pageContent);
+  const [title, setTitle] = useState(page[index]?.page || "");
+  const [content, setContent] = useState(page[index]?.pageContent || "");
 
-  // Sync with page change
   useEffect(() => {
-    if (!page[index]) return; // <- prevents crash
+    if (!page[index]) return;
     setTitle(page[index].page);
     setContent(page[index].pageContent);
   }, [index, page]);
@@ -66,148 +62,139 @@ const PageMobile: React.FC<PageProps> = ({
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-9999 w-[calc(100%+5rem)]"
+          className="fixed inset-0 z-[9999] mx-5 flex items-center justify-center p-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
           {/* BACKDROP */}
           <motion.div
-            className={`fixed inset-0 ${
-              darkMode ? `bg-zinc-950/20` : `bg-black/40`
-            }`}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setOpen(false)}
           />
 
-          {/* SLIDE-UP MODAL */}
+          {/* TICKET MODAL */}
           <motion.div
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{
-              type: "tween",
-              stiffness: 100,
-              damping: 20,
-            }}
-            className={`${
-              darkMode
-                ? `${Theme.dark.secondary} text-white`
-                : `${Theme.light.secondary} text-black`
-            } p-5 pb-0 shadow-xl fixed top-0 left-0 w-[calc(100%-0.5rem)] h-full overflow-y-auto flex flex-col gap-5 myscrollbar`}
+            initial={{ y: "100%", scale: 0.9 }}
+            animate={{ y: 0, scale: 1 }}
+            exit={{ y: "100%", scale: 0.9 }}
+            className={`relative top-8 max-h-screen min-h-screen min-w-[calc(100vw-1rem)] overflow-hidden rounded-t-lg shadow-2xl flex flex-col ${
+              darkMode ? "bg-zinc-900 text-white" : "bg-white text-black"
+            }`}
           >
-            {/* HEADER */}
-            <div className="flex flex-col gap-3 justify-between items-center mb-1">
-              <div className="flex gap-2 items-center">
+            {/* TICKET HOLES (Sides) */}
+            <div
+              className={`absolute top-[14.4%] -left-4 h-8 w-8 rounded-full z-20 ${darkMode ? "bg-zinc-800/80" : "bg-zinc-200"}`}
+            />
+            <div
+              className={`absolute top-[14.4%] -right-4 h-8 w-8 rounded-full z-20 ${darkMode ? "bg-zinc-800/80" : "bg-zinc-200"}`}
+            />
+
+            {/* UPPER TICKET STUB (Navigation & Actions) */}
+            <div className="p-6 pb-4 border-b-2 border-dashed border-zinc-500/20 relative">
+              <div className="flex justify-between items-center mb-4">
                 <button
-                  onClick={() => {
-                    setOpen(false);
-                    setIndex(0);
-                  }}
-                  className="px-3 py-1 bg-red-500 text-white rounded-md"
+                  onClick={() => setOpen(false)}
+                  className="px-4 py-1.5 bg-red-500/10 text-red-500 font-bold rounded-full text-xs uppercase tracking-widest"
                 >
                   Close
                 </button>
-                <button className="p-2 rounded-full bg-blue-400 shadow text-white group">
-                  <FiDownload />
-                  <Tooltip
-                    text="Download"
-                    darkMode={darkMode}
-                    className="top-full left-16 group-hover:block hidden"
-                  />
-                </button>
-                <button className="p-2 rounded-full bg-blue-400 shadow text-white group">
-                  <FiSearch />
-                  <Tooltip
-                    text="Search Web"
-                    darkMode={darkMode}
-                    className="top-full left-16 group-hover:block hidden"
-                  />
-                </button>
-                <div
-                  className="h-max w-max rounded-full text-black bg-zinc-400/90 p-2 cursor-pointer"
-                  onClick={() => setIndex((prev) => prev + 1)}
-                >
-                  <Tooltip
-                    text="Navigate down"
-                    darkMode={darkMode}
-                    className="-top-1/2"
-                  />
-                  <FiArrowDown />
-                </div>
-                <div
-                  className="h-max w-max rounded-full text-black bg-zinc-400/90 p-2 cursor-pointer"
-                  onClick={() => setIndex((prev) => prev - 1)}
-                >
-                  <Tooltip
-                    text="Navigate down"
-                    darkMode={darkMode}
-                    className="-top-1/2"
-                  />
-                  <FiArrowUp />
+                <div className="flex gap-2">
+                  <button
+                    className={`p-2 rounded-full ${darkMode ? "bg-zinc-800" : "bg-zinc-100"}`}
+                  >
+                    <FiDownload size={16} />
+                  </button>
+                  <button
+                    className={`p-2 rounded-full ${darkMode ? "bg-zinc-800" : "bg-zinc-100"}`}
+                  >
+                    <FiSearch size={16} />
+                  </button>
                 </div>
               </div>
-              <div className="w-120 pl-27 flex-wrap relative -left-12">
-                <Toolbar darkMode={darkMode} />
+
+              {/* Pager Logic */}
+              <div className="flex justify-between items-center bg-zinc-500/5 p-2 rounded-xl">
+                <button
+                  onClick={() => setIndex((prev) => Math.max(0, prev - 1))}
+                  className="p-2"
+                >
+                  <FiArrowUp />
+                </button>
+                <span className="text-xs font-mono opacity-50 uppercase">
+                  Page {index + 1} of {page.length}
+                </span>
+                <button
+                  onClick={() =>
+                    setIndex((prev) => Math.min(page.length - 1, prev + 1))
+                  }
+                  className="p-2"
+                >
+                  <FiArrowDown />
+                </button>
               </div>
             </div>
 
-            <div className=" gap-4 grid  h-[calc(100%-4.5rem)]">
-              {/* LEFT LIST PANEL */}
+            {/* MAIN TICKET BODY (Editable Content) */}
+            <div className="flex-1 overflow-y-auto p-6 myscrollbar text-left">
+              {editingTitle ? (
+                <input
+                  autoFocus
+                  className="text-2xl font-bold bg-transparent outline-none w-full border-b-2 border-blue-500 pb-1"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  onBlur={saveTitle}
+                />
+              ) : (
+                <h2
+                  className="text-2xl font-bold tracking-tight cursor-pointer border-b-zinc-400 border-b"
+                  onClick={() => setEditingTitle(true)}
+                >
+                  {title || "Untitled Page"}
+                </h2>
+              )}
 
-              {/* MAIN PAGE CONTENT */}
-              <div className=" px-2 h-[calc(100%)] relative -top-1">
-                <div className="py-2 px-3 bg-white h-full shadow-md rounded-md text-black">
-                  {/* Editable Title */}
-                  {editingTitle ? (
-                    <input
-                      autoFocus
-                      className="text-xl font-semibold bg-transparent border-b border-zinc-400 outline-none w-full"
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") saveTitle();
-                        if (e.key === "Escape") setEditingTitle(false);
-                      }}
-                      onBlur={saveTitle}
-                    />
-                  ) : (
-                    <h2
-                      className="text-xl font-semibold cursor-text text-left"
-                      onClick={() => setEditingTitle(true)}
-                    >
-                      {title}
-                    </h2>
-                  )}
-
-                  <div className="text-left mt-4 pb-15">
-                    {editingContent ? (
-                      <textarea
-                        autoFocus
-                        className="text-md pb-5 font-normal bg-transparent outline-none border-b w-full max-h-[90vh] min-h-[75vh] myscrollbar overflow-y-auto resize-none"
-                        value={content}
-                        onChange={(e) => setContent(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && e.ctrlKey) saveContent();
-                          if (e.key === "Escape") setEditingContent(false);
-                        }}
-                        onBlur={saveContent}
-                      />
-                    ) : (
-                      <div
-                        className="cursor-text overflow-auto mynewscrollbar"
-                        style={{
-                          whiteSpace: "pre-wrap",
-                          maxHeight: "70vh", // or 75vh, choose what fits your layout
-                        }}
-                        onClick={() => setEditingContent(true)}
-                      >
-                        {content}
-                      </div>
-                    )}
+              <div className="mt-6">
+                {editingContent ? (
+                  <textarea
+                    autoFocus
+                    className="w-full min-h-[40vh] bg-transparent outline-none text-md leading-relaxed resize-none font-normal"
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    onBlur={saveContent}
+                  />
+                ) : (
+                  <div
+                    className="text-md leading-relaxed opacity-80 cursor-pointer min-h-[40vh]"
+                    style={{ whiteSpace: "pre-wrap" }}
+                    onClick={() => setEditingContent(true)}
+                  >
+                    {content || "Tap to add content..."}
                   </div>
+                )}
+              </div>
+            </div>
+
+            {/* LOWER TICKET STUB (Metadata) */}
+            <div className="p-6 bg-zinc-500/5 border-t-2 border-dashed border-zinc-500/20">
+              <div className="text-[10px] font-mono flex flex-col gap-1">
+                <div className="flex justify-between opacity-40">
+                  <span>CREATED</span>
+                  <span>
+                    {new Date(
+                      page[index]?.createdAt || Date.now(),
+                    ).toLocaleDateString()}
+                  </span>
+                </div>
+                <div
+                  className={`flex justify-between font-bold ${darkMode ? "text-blue-400" : "text-blue-600"}`}
+                >
+                  <span>LAST EDITED</span>
+                  <span>
+                    {new Date(
+                      page[index]?.updatedAt || Date.now(),
+                    ).toLocaleTimeString()}
+                  </span>
                 </div>
               </div>
             </div>

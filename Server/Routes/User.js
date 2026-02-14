@@ -37,7 +37,9 @@ router.post("/folder-create", protectRoute, async (req, res) => {
 
 router.get("/getAll", protectRoute, async (req, res) => {
   try {
-    const data = await Folder.find({ createdBy: req.user._id });
+    const data = await Folder.find({ createdBy: req.user._id })
+      .populate("pages")
+      .lean();
     return res.status(200).json({ message: "Retrieved", data: data });
   } catch (error) {}
 });
@@ -107,7 +109,7 @@ router.patch("/folder-update/:folderID", protectRoute, async (req, res) => {
     const updatedFolder = await Folder.findOneAndUpdate(
       { _id: folderID, createdBy: req.user._id },
       { $set: updates }, // Use $set to update only the fields provided in the body
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     );
 
     if (!updatedFolder) {
@@ -147,7 +149,7 @@ router.patch("/page-update/:pageID", protectRoute, async (req, res) => {
     const updatedPage = await Page.findByIdAndUpdate(
       pageID,
       { $set: updates },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     );
 
     if (!updatedPage) {

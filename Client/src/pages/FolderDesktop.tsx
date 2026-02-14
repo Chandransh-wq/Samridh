@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { FaBell, FaHeart, FaPlus } from "react-icons/fa";
 import { Theme } from "../assets/Theme";
-import { folderData, TAGS, type Page, type folder } from "../assets/DemoData";
+import { TAGS, type Page, type folder } from "../assets/DemoData";
 import {
   COLORS_Light,
   getRandomColor,
@@ -13,20 +13,30 @@ import { logoutUser } from "../utils/authServies";
 import DropDown from "../Components/DropDown";
 import { AnimatePresence, motion } from "framer-motion";
 import Input from "../Components/Input";
-import { createPage } from "../utils/folderServices";
 import Pages from "./Page";
 import Notification from "../Components/notification";
 import Tooltip from "../Components/Tooltip";
-import { createFolder } from "../assets/Services/user.service";
+import { createFolder, createPage } from "../assets/Services/user.service";
+import { toast } from "../utils/Toast";
+import { useFolders } from "../assets/hooks/useFolder";
+// @ts-ignore: Suppression of casing error
+import Loader from "../Components/Loader";
 
 interface FolderProps {
   darkMode: boolean;
 }
 
+export interface sendPage {
+  title: string;
+  pageContent: string;
+  tags: string[];
+}
+
 const FolderDesktop: React.FC<FolderProps> = ({ darkMode }) => {
+  const { folders, setFolders, loading, refreshFolders } = useFolders();
+
   const navigate = useNavigate();
-  const [folders, setFolders] = useState<folder[]>(folderData);
-  const [selected, setSelected] = useState(0);
+  const [selected, setSelected] = useState<string | null>(null);
   const [selectedPage, setSelectedPage] = useState(0);
   const [open, setOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -39,7 +49,7 @@ const FolderDesktop: React.FC<FolderProps> = ({ darkMode }) => {
 
   const toggleTag = (tag: string) => {
     setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
     );
   };
 
@@ -50,11 +60,19 @@ const FolderDesktop: React.FC<FolderProps> = ({ darkMode }) => {
   const handleUpdateTitle = (
     pageIndex: number,
     newTitle: string,
-    newContent?: string
+    newContent?: string,
   ) => {
+    if (selected === null) return;
+
     setFolders((prev) => {
       const updated = [...prev];
-      const folderCopy = { ...updated[selected] };
+
+      // @ts-ignore: selected might be viewed as null/any by the compiler here
+      const targetFolder = updated[selected];
+
+      if (!targetFolder) return prev;
+
+      const folderCopy = { ...targetFolder };
       const content = newContent ?? folderCopy.pages[pageIndex].pageContent;
 
       folderCopy.pages = [...folderCopy.pages];
@@ -62,62 +80,58 @@ const FolderDesktop: React.FC<FolderProps> = ({ darkMode }) => {
         ...folderCopy.pages[pageIndex],
         page: newTitle,
         pageContent: content,
-        editedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       };
 
+      // @ts-ignore: ignoring index type check
       updated[selected] = folderCopy;
       return updated;
     });
   };
 
-  const handleCreate = () => {
-    if (selectedOption === "Folder") {
-      const newFolder: folder = {
-        id: `folder-${Date.now()}`,
-        title: title,
-        description: description,
-        color: selectedColor || COLORS_Light[0],
-        favorite: favourite,
-        tags: selectedTags,
-        icon: <div></div>,
-        pages: [],
-      };
-      createFolder(newFolder, darkMode);
-      setFolders((prev) => [...prev, newFolder]);
-    } else if (selectedOption === "Topic") {
-      const newPage: Page = {
-        id: `page-${Date.now()}`,
-        page: title,
-        pageContent: "",
-        createdAt: new Date().toISOString(),
-        editedAt: new Date().toISOString(),
-        tags: selectedTags,
-      };
-      const folderIndex =
-        (document.getElementById("selectFolder") as HTMLSelectElement)
-          ?.selectedIndex ?? 0;
-      createPage(newPage, folderIndex);
-      setFolders((prev) => {
-        const copy = [...prev];
-        copy[folderIndex].pages.push(newPage);
-        return copy;
-      });
+  const handleCreate = async () => {
+    try {
+      if (selectedOption === "Folder") {
+        const newFolder: folder = {
+          title: title,
+          description: description,
+          color: selectedColor || COLORS_Light[0],
+          favorite: favourite,
+          updatedAt: `Date.now()`,
+          tags: selectedTags,
+          icon: <div></div>,
+          pages: [],
+        };
+        await createFolder(newFolder, darkMode);
+        setFolders((prev) => [...prev, newFolder]);
+      } else if (selectedOption === "Topic") {
+        const newPage: sendPage = {
+          title: title,
+          pageContent: "",
+          tags: selectedTags,
+        };
+        await createPage(newPage, darkMode, activeFolder._id ?? "");
+      }
+      await refreshFolders();
+      setSelectedOption("");
+      setSelectedTags([]);
+      setSelectedColor("");
+      setFavourite(false);
+      setDialogOpen(false);
+    } catch (error) {
+      console.log(error);
+      toast.error("Error", "There was an error", darkMode);
     }
-
-    setSelectedOption("");
-    setSelectedTags([]);
-    setSelectedColor("");
-    setFavourite(false);
-    setDialogOpen(false);
   };
   const [openNoti, setOpenNoti] = useState(false);
+  const activeFolder = folders.find((f) => f._id === selected) || folders[0];
 
   return (
     <div>
       <div
         className={`${
           darkMode ? "bg-[#111111ed]" : "bg-white"
-        } w-[100%-6rem] min-h-screen absolute left-0 z-0 flex flex-col gap-4`}
+        } w-screen min-h-screen absolute left-0 z-0 flex flex-col gap-4`}
       >
         <div
           className={`h-[calc(100%)] w-[calc(100%-6rem)] relative left-20 ${
@@ -131,7 +145,7 @@ const FolderDesktop: React.FC<FolderProps> = ({ darkMode }) => {
         >
           {/* HEADER */}
           <div
-            className={`flex flex-row justify-between items-center relative z-999 px-16 py-5 ${
+            className={`flex flex-row justify-between items-center relative z-9999 px-16 py-5 ${
               darkMode
                 ? `${Theme.dark.primary} text-white`
                 : `${Theme.light.secondary} shadow text-black`
@@ -187,7 +201,7 @@ const FolderDesktop: React.FC<FolderProps> = ({ darkMode }) => {
               open={dialogOpen}
               setOpen={setDialogOpen}
               title="Select what to Add"
-              className={`right-32 top-[3.85rem] rounded-t-none ${
+              className={`right-32 top-[3.85rem] z-999 rounded-t-none ${
                 darkMode ? Theme.dark.secondary : "bg-gray-500"
               }`}
               elements={[
@@ -204,215 +218,423 @@ const FolderDesktop: React.FC<FolderProps> = ({ darkMode }) => {
           )}
 
           {/* MAIN GRID */}
-          <div className="min-h-[calc(100%-5rem)] grid grid-cols-3 gap-5 p-4">
-            {/* LEFT LIST OF FOLDERS */}
-            <div
-              className={`col-span-2 h-full gap-4 p-5 w-full ${
-                darkMode ? `${Theme.dark.primary} text-white` : `text-black`
-              }`}
-            >
-              <div className="flex flex-col gap-10 w-full">
-                {folders.map((folder, idx) => (
-                  <div
-                    key={idx}
+          <AnimatePresence mode="wait">
+            {loading ? (
+              <motion.div
+                key="Loader"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="flex h-[80vh] w-full items-center justify-center"
+              >
+                <Loader darkMode={darkMode} />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="content"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="min-h-[calc(100%-5rem)] grid grid-cols-3 gap-8 p-6"
+              >
+                {/* LEFT COLUMN: DYNAMIC FOLDERS */}
+                <div className="col-span-2">
+                  {/* Logic: columns-2 creates the masonry effect where heights vary */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                    <div className="flex flex-col gap-6">
+                      {folders
+                        .filter((_, i) => i % 2 === 0)
+                        .map((folder, idx) => (
+                          <motion.div
+                            key={folder._id || idx}
+                            layout // Logic: Smoothly animates size changes
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ delay: idx * 0.05 }}
+                            onClick={() => setSelected(folder._id ?? "")}
+                            className={`break-inside-avoid inline-block w-full p-6 rounded-4xl border transition-all duration-300 cursor-pointer group relative
+                ${darkMode ? "bg-zinc-900 border-zinc-800 hover:border-zinc-700" : "bg-white border-zinc-200 shadow-sm hover:shadow-xl"}
+                ${selected === folder._id ? "ring-2 ring-blue-500 border-transparent shadow-2xl shadow-blue-500/10" : ""}
+              `}
+                          >
+                            {/* Selection Glow */}
+                            {selected === folder._id && (
+                              <div className="absolute inset-0 bg-blue-500/5 rounded-4xl pointer-events-none" />
+                            )}
+
+                            {/* Folder Header */}
+                            <div className="flex justify-between items-start mb-4">
+                              <div
+                                className="h-84 w-84 rounded-2xl bg-zinc-500/10 p-2 flex items-center justify-center"
+                                dangerouslySetInnerHTML={{
+                                  __html: illustration(folder.tags[0]),
+                                }}
+                              />
+                              <div className="flex flex-col items-end gap-2">
+                                <div
+                                  className="h-5 w-5 rounded-full shadow-lg"
+                                  style={{ background: folder.color }}
+                                />
+                                {folder.favorite ? (
+                                  <FaHeart className="text-red-500 drop-shadow-md scale-110" />
+                                ) : (
+                                  <FiHeart
+                                    size={18}
+                                    className={`${darkMode ? "text-zinc-500" : "text-zinc-400"} hover:text-red-400 transition-colors`}
+                                  />
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Content Area - Variable Height */}
+                            <div className="text-left">
+                              <h3
+                                className={`text-xl font-bold ${selected === folder._id ? "text-blue-600" : darkMode ? "text-white" : "text-black"} tracking-tight mb-2 group-hover:text-blue-500 transition-colors`}
+                              >
+                                {folder.title}
+                              </h3>
+                              {/* Logic: No line-clamp here allows the card to grow with the text length */}
+                              <p
+                                className={`text-sm leading-relaxed mb-5 ${darkMode ? "text-zinc-400" : "text-zinc-600"}`}
+                              >
+                                {folder.description ||
+                                  "Project workspace and resources."}
+                              </p>
+                            </div>
+
+                            {/* Tags & Meta */}
+                            <div className="flex flex-col gap-4">
+                              <div className="flex gap-2 flex-wrap">
+                                {folder.tags.map((tag, tIdx) => (
+                                  <span
+                                    key={tIdx}
+                                    className={` px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-white`}
+                                    style={{
+                                      background: getRandomColor(darkMode),
+                                    }}
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+
+                              <div
+                                className={`flex justify-between items-center pt-4 border-t border-zinc-500/10 ${darkMode ? "text-white" : "text-black"}`}
+                              >
+                                <span className="text-[10px] font-semibold uppercase tracking-tighter opacity-50">
+                                  {folder.pages.length} Documents
+                                </span>
+                                <span className="text-[10px] opacity-50 font-mono">
+                                  {new Date(
+                                    folder.updatedAt || Date.now(),
+                                  ).toLocaleDateString()}
+                                </span>
+                              </div>
+                            </div>
+                          </motion.div>
+                        ))}
+                    </div>
+                    <div className="flex flex-col gap-6">
+                      {folders
+                        .filter((_, i) => i % 2 !== 0)
+                        .map((folder, idx) => (
+                          <motion.div
+                            key={folder._id || idx}
+                            layout // Logic: Smoothly animates size changes
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ delay: idx * 0.05 }}
+                            onClick={() => setSelected(folder._id ?? "")}
+                            className={`break-inside-avoid inline-block w-full p-6 rounded-4xl border transition-all duration-300 cursor-pointer group relative
+                ${darkMode ? "bg-zinc-900 border-zinc-800 hover:border-zinc-700" : "bg-white border-zinc-200 shadow-sm hover:shadow-xl"}
+                ${selected === folder._id ? "ring-2 ring-blue-500 border-transparent shadow-2xl shadow-blue-500/10" : ""}
+              `}
+                          >
+                            {/* Selection Glow */}
+                            {selected === folder._id && (
+                              <div className="absolute inset-0 bg-blue-500/5 rounded-4xl pointer-events-none" />
+                            )}
+
+                            {/* Folder Header */}
+                            <div className="flex justify-between items-start mb-4">
+                              <div
+                                className="h-84 w-84 rounded-2xl bg-zinc-500/10 p-2 flex items-center justify-center"
+                                dangerouslySetInnerHTML={{
+                                  __html: illustration(folder.tags[0]),
+                                }}
+                              />
+                              <div className="flex flex-col items-end gap-2">
+                                <div
+                                  className="h-5 w-5 rounded-full shadow-lg"
+                                  style={{ background: folder.color }}
+                                />
+                                {folder.favorite ? (
+                                  <FaHeart className="text-red-500 drop-shadow-md scale-110" />
+                                ) : (
+                                  <FiHeart
+                                    size={18}
+                                    className={`${darkMode ? "text-zinc-500" : "text-zinc-400"} hover:text-red-400 transition-colors`}
+                                  />
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Content Area - Variable Height */}
+                            <div className="text-left">
+                              <h3
+                                className={`text-xl font-bold ${selected === folder._id ? "text-blue-600" : darkMode ? "text-white" : "text-black"} tracking-tight mb-2 group-hover:text-blue-500 transition-colors`}
+                              >
+                                {folder.title}
+                              </h3>
+                              {/* Logic: No line-clamp here allows the card to grow with the text length */}
+                              <p
+                                className={`text-sm leading-relaxed mb-5 ${darkMode ? "text-zinc-400" : "text-zinc-600"}`}
+                              >
+                                {folder.description ||
+                                  "Project workspace and resources."}
+                              </p>
+                            </div>
+
+                            {/* Tags & Meta */}
+                            <div className="flex flex-col gap-4">
+                              <div className="flex gap-2 flex-wrap">
+                                {folder.tags.map((tag, tIdx) => (
+                                  <span
+                                    key={tIdx}
+                                    className={` px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-white`}
+                                    style={{
+                                      background: getRandomColor(darkMode),
+                                    }}
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+
+                              <div
+                                className={`flex justify-between items-center pt-4 border-t border-zinc-500/10 ${darkMode ? "text-white" : "text-black"}`}
+                              >
+                                <span className="text-[10px] font-semibold uppercase tracking-tighter opacity-50">
+                                  {folder.pages.length} Documents
+                                </span>
+                                <span className="text-[10px] opacity-50 font-mono">
+                                  {new Date(
+                                    folder.updatedAt || Date.now(),
+                                  ).toLocaleDateString()}
+                                </span>
+                              </div>
+                            </div>
+                          </motion.div>
+                        ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* RIGHT COLUMN: STICKY PAGES PREVIEW */}
+                {/* RIGHT PAGES LIST */}
+                <div
+                  className={`p-5 ${
+                    darkMode
+                      ? `${Theme.dark.primary} text-white`
+                      : `${Theme.light.secondary} text-black`
+                  }`}
+                >
+                  {/* TOP STICKY HEADER - Added layoutId for smooth switching */}
+                  <motion.div
+                    layout
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    key={activeFolder?._id} // Logic: Re-animates when folder changes
                     className={`${
-                      darkMode
-                        ? `${Theme.dark.primary} shadow-[#52525255]`
-                        : Theme.light.secondary
-                    } flex gap-4 w-full p-5 rounded-2xl shadow-md`}
-                    onClick={() => setSelected(idx)}
+                      darkMode ? Theme.dark.background : Theme.light.primary
+                    } w-full shadow-md p-4 rounded-2xl sticky top-10 z-20 flex items-center gap-4 text-left transition-colors duration-300`}
                   >
-                    <div
-                      className="h-[50%] w-[50%]"
-                      dangerouslySetInnerHTML={{
-                        __html: illustration(folder.tags[0]),
+                    <motion.div
+                      layoutId="active-indicator"
+                      className="h-4 w-4 rounded-full shadow-sm"
+                      style={{
+                        background: activeFolder?.color || "#3b82f6",
                       }}
                     />
 
-                    <div className="flex flex-col text-left w-[calc(100%-15rem)]">
-                      <div className="flex justify-between items-center w-full">
-                        <span className="text-lg font-semibold">
-                          {folder.title}
+                    <div className="flex flex-col leading-tight gap-2 w-full">
+                      <div className="flex justify-between w-full items-center">
+                        <span className="font-semibold text-base tracking-tight">
+                          {activeFolder?.title || "Select a Folder"}
                         </span>
+
+                        <motion.div
+                          whileTap={{ scale: 0.8 }}
+                          whileHover={{ scale: 1.1 }}
+                        >
+                          {activeFolder?.favorite || activeFolder?.favorite ? (
+                            <FaHeart className="text-red-500 drop-shadow-sm" />
+                          ) : (
+                            <FiHeart
+                              className={
+                                darkMode ? "text-zinc-500" : "text-zinc-400"
+                              }
+                            />
+                          )}
+                        </motion.div>
                       </div>
 
-                      <div className="w-[calc(100%-5rem)]">
-                        <span>{folder.description}</span>
+                      <div className="flex gap-2 flex-wrap">
+                        {activeFolder?.tags?.map((tag, i) => (
+                          <span
+                            key={i}
+                            className="px-2 py-0.5 text-[10px] uppercase font-bold tracking-wider rounded-md bg-zinc-500/20 opacity-70"
+                          >
+                            {tag}
+                          </span>
+                        ))}
                       </div>
+                    </div>
+                  </motion.div>
 
-                      <div className="flex gap-2 mt-2 flex-wrap">
-                        {folder.tags.length <= 2 ? (
-                          folder.tags.map((tag, tIdx) => (
-                            <span
-                              key={tIdx}
-                              className={`${getRandomColor(
-                                darkMode
-                              )} px-3 py-1 rounded-lg text-sm`}
-                            >
-                              {tag}
+                  {/* PAGES LIST - Ticket Style */}
+                  <div
+                    className={`sticky top-40 mt-5 gap-5 flex flex-col ${
+                      darkMode ? Theme.dark.primary : Theme.light.secondary
+                    }`}
+                  >
+                    <AnimatePresence mode="popLayout">
+                      {activeFolder?.pages && activeFolder.pages.length > 0 ? (
+                        activeFolder.pages.map((page: Page, idx) => (
+                          <motion.div
+                            key={page._id || idx}
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            transition={{
+                              delay: idx * 0.05,
+                              type: "spring",
+                              stiffness: 100,
+                            }}
+                            whileHover={{ scale: 1.02, x: -5 }}
+                            whileTap={{ scale: 0.98 }}
+                            /* Added 'relative' and 'overflow-hidden' for the ticket holes */
+                            className={`${
+                              darkMode
+                                ? Theme.dark.secondary
+                                : Theme.light.background
+                            } shadow-sm border border-transparent hover:border-blue-500/30 p-4 rounded-md mb-3 text-left cursor-pointer transition-all duration-200 relative overflow-hidden`}
+                            onClick={() => {
+                              setSelectedPage(idx);
+                              setOpen(true);
+                            }}
+                          >
+                            {/* LEFT HOLE - The 'Ticket' Cut-out */}
+                            <div
+                              className={`absolute top-[58%] -left-3 h-6 w-6 rounded-full z-10 shadow-inner ${
+                                darkMode ? "bg-[#111111ed]" : "bg-zinc-200"
+                              }`}
+                            />
+
+                            {/* RIGHT HOLE */}
+                            <div
+                              className={`absolute top-[58%] -right-3 h-6 w-6 rounded-full z-10 shadow-inner ${
+                                darkMode ? "bg-[#111111ed]" : "bg-zinc-200"
+                              }`}
+                            />
+
+                            <span className="font-semibold text-lg mt-1 block">
+                              {page.page}
                             </span>
-                          ))
-                        ) : (
-                          <>
-                            {folder.tags.slice(0, 2).map((tag, tIdx) => (
+
+                            <p className="text-sm opacity-60 leading-relaxed my-1 mb-2 line-clamp-2">
+                              {page?.pageContent ||
+                                "No content summary available."}
+                            </p>
+
+                            <div className="flex gap-2 flex-wrap mb-3">
+                              {page.tags?.map((tag, tIdx) => (
+                                <span
+                                  key={tIdx}
+                                  className="px-2 py-1 text-[10px] font-black uppercase rounded bg-blue-500/10 text-blue-500"
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+
+                            {/* TICKET PERFORATION - Changed border-t to dashed and increased margin */}
+                            <div className="text-[10px] flex flex-col gap-1 font-mono border-t-2 border-dashed border-zinc-500/20 pt-4 mt-2">
+                              {/* Created Date */}
                               <span
-                                key={tIdx}
-                                className={`${getRandomColor(
-                                  darkMode
-                                )} px-3 py-1 rounded-lg text-sm`}
+                                className={`flex justify-between opacity-60 uppercase text-[10px] tracking-tighter ${
+                                  darkMode ? "text-white" : "text-black"
+                                }`}
                               >
-                                {tag}
+                                <span>Created</span>
+                                <span>
+                                  {new Date(
+                                    page.createdAt || Date.now(),
+                                  ).toLocaleString("en-UK", {
+                                    day: "numeric",
+                                    month: "short",
+                                    year: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                    hour12: true,
+                                  })}
+                                </span>
                               </span>
-                            ))}
+
+                              {/* Edited Date */}
+                              <span
+                                className={`flex justify-between font-bold uppercase tracking-tighter ${
+                                  darkMode ? "text-blue-400" : "text-blue-600"
+                                }`}
+                              >
+                                <span>Last Edited</span>
+                                <span>
+                                  {new Date(
+                                    page.updatedAt || Date.now(),
+                                  ).toLocaleString("en-UK", {
+                                    day: "numeric",
+                                    month: "short",
+                                    year: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                    hour12: true,
+                                  })}
+                                </span>
+                              </span>
+                            </div>
+                          </motion.div>
+                        ))
+                      ) : (
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 0.5 }}
+                          className="mt-32 text-center flex flex-col items-center gap-2"
+                        >
+                          <div
+                            className="h-10 w-10 rounded-full border-2 border-dashed border-zinc-500 flex items-center justify-center text-black hover:rotate-90 transition-all duration-500"
+                            onClick={() => {
+                              setSelected(activeFolder._id ?? "");
+                              setSelectedOption("Topic");
+                            }}
+                          >
                             <span
-                              className={`${getRandomColor(
-                                darkMode
-                              )} px-3 py-1 rounded-lg text-sm`}
+                              className={`${darkMode ? "text-white" : "text-black"} text-xl relative -top-0.5`}
                             >
-                              +{folder.tags.length - 2}
+                              +
                             </span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col justify-between items-center ml-auto pl-4">
-                      <span
-                        className={`w-max p-2 px-4 rounded-md mb-2 ${
-                          darkMode
-                            ? `${Theme.dark.background}`
-                            : `${Theme.light.background}`
-                        }`}
-                      >
-                        Pages: {folder.pages.length}
-                      </span>
-
-                      <div className="flex flex-col gap-2 items-center mb-4">
-                        <div
-                          className="h-5 w-5 rounded-full"
-                          style={{ background: folder.color }}
-                        />
-                        {folder.favorite ? (
-                          <FaHeart fill="red" />
-                        ) : (
-                          <FiHeart fill="white" stroke="black" />
-                        )}
-                      </div>
-
-                      <div
-                        className="h-full w-[0.1px]"
-                        style={{ background: darkMode ? "white" : "black" }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* RIGHT PAGES LIST */}
-            <div
-              className={`p-5 ${
-                darkMode
-                  ? `${Theme.dark.primary} text-white`
-                  : `${Theme.light.secondary} text-black`
-              }`}
-            >
-              <div
-                className={`${
-                  darkMode ? Theme.dark.background : Theme.light.primary
-                } w-full shadow-md p-4 rounded-2xl sticky top-10 flex items-center gap-4 text-left`}
-              >
-                <div
-                  className="h-4 w-4 rounded-full"
-                  style={{ background: folders[selected].color }}
-                />
-
-                <div className="flex flex-col leading-tight gap-2 w-full">
-                  <div className="flex justify-between w-full items-center">
-                    <span className="font-semibold text-base">
-                      {folders[selected].title}
-                    </span>
-
-                    {folders[selected].favorite ? (
-                      <FaHeart fill="red" />
-                    ) : (
-                      <FiHeart />
-                    )}
-                  </div>
-
-                  <div className="flex gap-2 flex-wrap">
-                    {folders[selected].tags.map((tag, i) => (
-                      <span
-                        key={i}
-                        className="px-2 py-0.5 text-xs rounded-md bg-zinc-500/20"
-                      >
-                        {tag}
-                      </span>
-                    ))}
+                          </div>
+                          <span
+                            className={`text-sm italic ${darkMode ? "text-white" : "text-black"}`}
+                          >
+                            No Pages created in this folder
+                          </span>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 </div>
-              </div>
-
-              <div
-                className={`sticky top-40 mt-5 gap-5 flex flex-col ${
-                  darkMode ? Theme.dark.primary : Theme.light.secondary
-                }`}
-              >
-                {folders[selected].pages.map((page, idx) => (
-                  <div
-                    key={idx}
-                    className={`${
-                      darkMode ? Theme.dark.secondary : Theme.light.background
-                    } shadow p-4 rounded-2xl mb-3 text-left`}
-                    onClick={() => {
-                      setSelectedPage(idx);
-                      setOpen(true);
-                    }}
-                  >
-                    <span className="font-semibold text-lg mt-1">
-                      {page.page}
-                    </span>
-
-                    <p className="text-sm opacity-80 leading-relaxed my-1 mb-2">
-                      {page.pageContent.slice(0, 150)}
-                      {page.pageContent.length > 150 ? "..." : ""}
-                    </p>
-
-                    <div className="flex gap-2 flex-wrap mb-2">
-                      {page.tags?.map((tag, tIdx) => (
-                        <span
-                          key={tIdx}
-                          className="px-2 py-1 text-xs rounded-md bg-zinc-500/20"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-
-                    <div className="text-xs opacity-50 flex flex-col">
-                      <span>
-                        Created:{" "}
-                        {new Date(page.createdAt).toLocaleDateString("en-UK", {
-                          weekday: "long",
-                          day: "numeric",
-                          month: "short",
-                        })}
-                      </span>
-
-                      <span>
-                        Last Edited:{" "}
-                        {new Date(page.editedAt).toLocaleDateString("en-UK", {
-                          weekday: "long",
-                          day: "numeric",
-                          month: "short",
-                        })}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
@@ -505,11 +727,12 @@ const FolderDesktop: React.FC<FolderProps> = ({ darkMode }) => {
                       {COLORS_Light.map((color, idx) => (
                         <div
                           key={idx}
-                          className={`h-4 w-4 p-2 rounded-full border transition-all duration-200 ${color} ${
+                          className={`h-4 w-4 p-2 rounded-full border transition-all duration-200 ${
                             selectedColor === color
                               ? "border-blue-500 border-2"
                               : "border-[#52525c44]"
                           }`}
+                          style={{ background: color }}
                           onClick={() => setSelectedColor(color)}
                         />
                       ))}
@@ -518,22 +741,65 @@ const FolderDesktop: React.FC<FolderProps> = ({ darkMode }) => {
                 </>
               )}
 
-              <div className="flex items-center w-lg mt-4 leading-2  flex-wrap gap-2">
-                {TAGS.map((tag, idx) => (
-                  <div
+              <div className="flex gap-2 mt-4 flex-wrap max-w-100 max-h-40 overflow-y-auto myscrollbar p-1">
+                {/* 1. RENDER EXISTING PRESETS */}
+                {selectedTags.map((tag, idx) => (
+                  <button
                     key={idx}
-                    className={`${
-                      selectedTags.includes(tag)
-                        ? "bg-blue-600 text-white"
-                        : darkMode
-                        ? Theme.dark.secondary + " text-white"
-                        : "bg-zinc-400 text-black"
-                    } h-max w-max p-3 px-4 rounded-lg transition-all duration-200 cursor-default`}
                     onClick={() => toggleTag(tag)}
+                    className={`px-3 py-1 rounded-full text-xs font-bold transition-all border border-zinc-300 ${
+                      selectedTags.includes(tag)
+                        ? "bg-blue-500 text-white shadow-md scale-105"
+                        : `${darkMode ? "bg-zinc-800 text-zinc-400" : "bg-zinc-100 text-zinc-500"} hover:scale-105`
+                    }`}
                   >
                     {tag}
-                  </div>
+                  </button>
                 ))}
+                {TAGS.filter((tag) => !selectedTags.includes(tag)).map(
+                  (tag, tIdx) => (
+                    <button
+                      key={tIdx}
+                      onClick={() => toggleTag(tag)}
+                      className={`px-3 py-1 rounded-full text-xs font-bold transition-all border border-zinc-300 ${
+                        selectedTags.includes(tag)
+                          ? "bg-blue-500 text-white shadow-md scale-105"
+                          : `${darkMode ? "bg-zinc-800 text-zinc-400" : "bg-zinc-100 text-zinc-500"} hover:scale-105`
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  ),
+                )}
+
+                {/* 2. THE "CUSTOM PUNCH" INPUT */}
+                <div className="relative flex items-center">
+                  <input
+                    type="text"
+                    placeholder="+ Custom Tag"
+                    className={`px-3 py-1 rounded-full text-xs font-bold outline-none border-2 border-dashed transition-all w-28 focus:w-40 ${
+                      darkMode
+                        ? "bg-transparent border-zinc-700 text-blue-400 focus:border-blue-500"
+                        : "bg-transparent border-zinc-300 text-blue-600 focus:border-blue-500"
+                    }`}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        const newTag = e.currentTarget.value.trim();
+                        if (newTag && !selectedTags.includes(newTag)) {
+                          toggleTag(newTag); // Add to selection
+                          e.currentTarget.value = ""; // Clear input
+                        }
+                      }
+                    }}
+                    onBlur={(e) => {
+                      const newTag = e.currentTarget.value.trim();
+                      if (newTag && !selectedTags.includes(newTag)) {
+                        toggleTag(newTag); // Add to selection
+                        e.currentTarget.value = ""; // Clear input
+                      }
+                    }}
+                  />
+                </div>
               </div>
 
               <div>
@@ -551,8 +817,8 @@ const FolderDesktop: React.FC<FolderProps> = ({ darkMode }) => {
 
       {/* PAGE MODAL */}
       <Pages
-        page={folders[selected].pages}
-        folder={folders[selected]}
+        page={activeFolder?.pages}
+        folder={activeFolder}
         selected={selectedPage}
         open={open}
         setOpen={setOpen}

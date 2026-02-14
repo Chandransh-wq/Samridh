@@ -1,7 +1,5 @@
 import React from "react";
 import { FaBell } from "react-icons/fa";
-import Graph from "../Components/Graph";
-
 interface MapDesktopProps {
   darkMode: boolean;
 }
@@ -35,8 +33,8 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ darkMode }) => {
             <FaBell />
           </span>
         </div>
+        <div>Under development</div>
       </div>
-      <Graph />
     </div>
   );
 };

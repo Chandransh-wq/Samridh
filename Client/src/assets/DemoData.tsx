@@ -2,16 +2,16 @@ import { faker } from "@faker-js/faker";
 import { GiAtom, GiBrain, GiBookshelf } from "react-icons/gi";
 
 export interface Page {
-  id: string;
+  _id?: string;
   page: string;
   pageContent: string;
-  createdAt: string;
-  editedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
   tags: string[];
 }
 
 export interface folder {
-  id: string;
+  _id?: string;
   title: string;
   description: string;
   color: string;
@@ -19,6 +19,7 @@ export interface folder {
   tags: string[];
   icon: React.ReactNode;
   pages: Page[];
+  updatedAt?: string;
 }
 
 export interface User {
@@ -60,20 +61,20 @@ export const TAGS = [
 ];
 
 const generatePage = (): Page => ({
-  id: faker.string.uuid(),
+  _id: faker.string.uuid(),
   page: `Page ${faker.number.int({ min: 1, max: 10 })}`,
   pageContent: faker.lorem.paragraphs(faker.number.int({ min: 1, max: 12 })),
   createdAt: faker.date
     .between({ from: "2025-01-01", to: "2025-10-01" })
     .toISOString(),
-  editedAt: faker.date
+  updatedAt: faker.date
     .between({ from: "2025-01-01", to: "2025-10-10" })
     .toISOString(),
   tags: faker.helpers.arrayElements(TAGS, faker.number.int({ min: 1, max: 4 })),
 });
 
 const generatefolder = (): folder => ({
-  id: faker.string.uuid(),
+  _id: faker.string.uuid(),
   title: faker.lorem.words(faker.number.int({ min: 2, max: 4 })),
   description: faker.lorem.sentences(faker.number.int({ min: 1, max: 4 })),
   color: faker.color.rgb(),
@@ -82,7 +83,7 @@ const generatefolder = (): folder => ({
   icon: ICONS[faker.number.int({ min: 0, max: ICONS.length - 1 })],
   pages: Array.from(
     { length: faker.number.int({ min: 2, max: 5 }) },
-    generatePage
+    generatePage,
   ),
 });
 
@@ -108,12 +109,12 @@ const randomLength = Math.floor(Math.random() * 10) + 1;
 // Generate demo data
 export const folderData: folder[] = Array.from(
   { length: randomLength },
-  generatefolder
+  generatefolder,
 );
 
 export const notifications: Notification[] = Array.from(
   { length: faker.number.int({ min: 3, max: 8 }) },
-  generateNotification
+  generateNotification,
 );
 
 export const userInfo: User = generateUser();

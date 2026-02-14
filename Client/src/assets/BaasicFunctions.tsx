@@ -1,89 +1,85 @@
-import { notifications, type folder, type Page } from "./DemoData";
+import { folderData, notifications } from "./DemoData";
 import { basic } from "./Illustrations";
 
-/**
- * 1. INITIALS HELPER
- */
-export const getInitials = (name: string): string => {
+export const getInitials = (name: string) => {
   if (!name) return "";
+
+  // Split by whitespace and filter out empty strings
   const words = name.trim().split(/\s+/);
+
   let res = "";
+  // Loop up to 2 times, but stay within the actual number of words found
   for (let i = 0; i < Math.min(words.length, 2); i++) {
     res += words[i].charAt(0);
   }
+
   return res.toUpperCase();
 };
 
-/**
- * 2. METRICS CALCULATOR
- * Pass your folder array here to get all stats.
- */
-export const getMetrics = (folderData: folder[]) => {
-  let totalPages = 0;
-  let totalFavorites = 0;
-  const tagCounts: Record<string, number> = {};
+// Total number of folders
+const totalfolders = folderData.length;
 
-  folderData.forEach((f: folder) => {
-    totalPages += f.pages.length;
-    if (f.favorite) totalFavorites += 1;
+// Total number of pages
+let totalPages = 0;
 
-    // Count folder tags
-    f.tags.forEach((tag: string) => {
-      tagCounts[tag] = (tagCounts[tag] || 0) + 1;
-    });
+// Total number of favorites
+let totalFavorites = 0;
 
-    // Count page tags
-    f.pages.forEach((p: Page) => {
-      p.tags.forEach((tag: string) => {
-        tagCounts[tag] = (tagCounts[tag] || 0) + 1;
-      });
-    });
+// Tag insights
+const tagCounts: Record<string, number> = {};
+
+for (const folder of folderData) {
+  totalPages += folder.pages.length;
+
+  if (folder.favorite) totalFavorites += 1;
+
+  // Count folder tags
+  folder.tags.forEach((tag) => {
+    tagCounts[tag] = (tagCounts[tag] || 0) + 1;
   });
 
-  const topTags = Object.entries(tagCounts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([tag, count]) => `${tag} (${count})`);
+  // Count tags on each page
+  folder.pages.forEach((page) => {
+    page.tags.forEach((tag) => {
+      tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+    });
+  });
+}
 
-  const allPages = folderData.flatMap((f: folder) => f.pages);
+// Optional: get top N tags
+const topTags = Object.entries(tagCounts)
+  .sort((a, b) => b[1] - a[1])
+  .slice(0, 5)
+  .map(([tag, count]) => `${tag} (${count})`);
 
-  return {
-    totalFolders: folderData.length,
-    totalPages,
-    totalFavorites,
-    tagCounts,
-    topTags,
-    pages: allPages,
-  };
+// Get all the pages
+const pages = folderData.flatMap((Folder) => Folder.pages);
+
+//assign illustation
+const illustration = (type: string): string => {
+  return basic[type as keyof typeof basic] || basic.Other;
 };
-
-/**
- * 3. ILLUSTRATIONS & COLORS
- */
-export const illustration = (type: string): string => {
-  return (basic as any)[type] || basic.Other;
-};
-
+// Predefined safe Tailwind colors
 export const COLORS_Light = [
-  "bg-red-500/60",
-  "bg-blue-500/60",
-  "bg-green-500/60",
-  "bg-yellow-500/60",
-  "bg-purple-500/60",
-  "bg-pink-500/60",
-  "bg-indigo-500/60",
-  "bg-orange-500/60",
+  "rgba(239, 68, 68, 0.6)", // red-500
+  "rgba(59, 130, 246, 0.6)", // blue-500
+  "rgba(34, 197, 94, 0.6)", // green-500
+  "rgba(234, 179, 8, 0.6)", // yellow-500
+  "rgba(168, 85, 247, 0.6)", // purple-500
+  "rgba(236, 72, 153, 0.6)", // pink-500
+  "rgba(99, 102, 241, 0.6)", // indigo-500
+  "rgba(249, 115, 22, 0.6)", // orange-500
 ];
 
-const COLORS_Dark = [
-  "bg-red-500",
-  "bg-blue-500",
-  "bg-green-500",
-  "bg-yellow-500",
-  "bg-purple-500",
-  "bg-pink-500",
-  "bg-indigo-500",
-  "bg-orange-500",
+export const COLORS_Dark = [
+  "rgb(239, 68, 68)", // red-500
+  "rgb(59, 130, 246)", // blue-500
+  "rgb(34, 197, 94)", // green-500
+  "rgb(234, 179, 8)", // yellow-500
+  "rgb(168, 85, 247)", // purple-500
+  "rgb(236, 72, 153)", // pink-500
+  "rgb(99, 102, 241)", // indigo-500
+  "rgb(249, 115, 22)", // orange-500
 ];
 
 export const getRandomColor = (darkMode: boolean) => {
@@ -91,15 +87,15 @@ export const getRandomColor = (darkMode: boolean) => {
   return darkMode ? COLORS_Dark[index] : COLORS_Light[index];
 };
 
-/**
- * 4. SEARCH HELPERS
- */
-export const findfolderByPageId = (folderData: folder[], pageId: string) => {
-  return (
-    folderData.find((f: folder) =>
-      f.pages.some((p: Page) => p.id === pageId)
-    ) || null
-  );
-};
-
 export const notification = notifications;
+
+// Export all metrics
+export {
+  totalfolders,
+  totalPages,
+  totalFavorites,
+  tagCounts,
+  topTags,
+  pages,
+  illustration,
+};
