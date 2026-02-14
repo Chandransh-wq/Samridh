@@ -10,7 +10,7 @@ const Loader2 = ({ darkMode }: { darkMode?: boolean }) => {
         duration: 1.2,
         repeat: Infinity,
         delay: index * 0.15,
-        ease: "easeInOut", // TypeScript now knows this is a valid Easing string
+        ease: "easeInOut", // TypeScript now knows this is a valid Easing string hello
       },
     }),
   };
