@@ -372,7 +372,7 @@ const Pages: React.FC<PageProps> = ({
                         {p.tags?.map((tag, tIdx) => (
                           <span
                             key={tIdx}
-                            className={`px-2 py-0.5 text-[9px] font-black uppercase rounded ${
+                            className={`px-2 py-0.5 text-[9px] font-semibold pt-[2.7px] uppercase rounded ${
                               index === idx
                                 ? "bg-blue-500 text-white"
                                 : "bg-zinc-500/20 text-zinc-400"

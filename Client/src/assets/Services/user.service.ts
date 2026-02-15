@@ -101,6 +101,34 @@ export const updatePage = async (
   }
 };
 
+export const updateFolder = async (
+  credintials: folder,
+  darkMode: boolean,
+  folderId: string,
+) => {
+  try {
+    const cleanFolderId = folderId.trim();
+    const res = await apiRequest(
+      privateApi,
+      "patch",
+      `/user/folder-update/${cleanFolderId}`,
+      credintials,
+    );
+
+    toast.success(
+      "Success",
+      `${credintials.title} has been updated.`,
+      darkMode,
+    );
+    return res;
+  } catch (error: any) {
+    const errorMessage =
+      error.response?.data?.message || "Failed to create page";
+    toast.error("Error", errorMessage, darkMode);
+    console.error("Create page error:", error);
+  }
+};
+
 export const deletePage = async (
   pageId: string,
   darkMode: boolean,

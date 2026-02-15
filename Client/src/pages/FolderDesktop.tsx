@@ -20,6 +20,7 @@ import {
   createFolder,
   createPage,
   deleteFolder,
+  updateFolder,
 } from "../assets/Services/user.service";
 import { toast } from "../utils/Toast";
 import { useFolders } from "../assets/hooks/useFolder";
@@ -150,6 +151,32 @@ const FolderDesktop: React.FC<FolderProps> = ({ darkMode }) => {
       await refreshFolders();
     } catch (error) {
       toast.error("Error", "There was an error", darkMode);
+      console.log(error);
+    }
+  };
+
+  const updateFavorite = async () => {
+    try {
+      // 1. Calculate the new state (Simplified toggle)
+      const newFavourite = !activeFolder.favorite;
+
+      const updatedFolder: folder = {
+        ...activeFolder,
+        favorite: newFavourite,
+      };
+
+      const folderId = activeFolder._id ?? "";
+      if (!folderId) return;
+
+      // 2. Capture the server's response
+      const response = await updateFolder(updatedFolder, darkMode, folderId);
+
+      console.log(response);
+
+      // 4. Update the global list for the sidebar/other components
+      await refreshFolders();
+    } catch (error) {
+      console.error("Failed to update favorite status:", error);
     }
   };
 
@@ -495,6 +522,7 @@ const FolderDesktop: React.FC<FolderProps> = ({ darkMode }) => {
                             whileTap={{ scale: 0.8 }}
                             whileHover={{ scale: 1.1 }}
                             className="flex items-center"
+                            onClick={() => updateFavorite()}
                           >
                             {activeFolder?.favorite ||
                             activeFolder?.favorite ? (

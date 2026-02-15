@@ -15,7 +15,7 @@ const pageSchema = new mongoose.Schema(
     },
     tags: [{ type: String }], // Corrected array of strings
   },
-  { timestamps: true }
+  { timestamps: true },
 ); // Mongoose handles createdAt/updatedAt automatically
 
 const folderSchema = new mongoose.Schema(
@@ -38,7 +38,7 @@ const folderSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    favourite: {
+    favorite: {
       type: Boolean,
       required: true,
       default: false,
@@ -56,7 +56,7 @@ const folderSchema = new mongoose.Schema(
       },
     ],
   },
-  { timestamps: true }
+  { timestamps: true },
 ); // Mongoose handles createdAt/updatedAt automatically
 
 // You typically need to define models before exporting the folder schema

@@ -31,6 +31,7 @@ const FolderMobile: React.FC<FolderMobileProps> = ({ darkMode }) => {
 
   // Logic: Use _id for selection to prevent Masonry/Filter bugs
   const [selectedId, setSelectedId] = useState<string | null>("");
+
   const [selectedPageIdx, setSelectedPageIdx] = useState(-1);
   const [openNoti, setOpenNoti] = useState(false);
   const [open, setOpen] = useState(false);
@@ -43,6 +44,16 @@ const FolderMobile: React.FC<FolderMobileProps> = ({ darkMode }) => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [save, setSaved] = useState(false);
+
+  useEffect(() => {
+    const refresh = async () => {
+      if (save) await refreshFolders();
+
+      setSaved(false);
+    };
+    refresh();
+  }, [save]);
 
   const toggleTag = (tag: string) => {
     setSelectedTags((prev) =>
@@ -589,13 +600,14 @@ const FolderMobile: React.FC<FolderMobileProps> = ({ darkMode }) => {
       {/* PAGE MODAL */}
       {selectedId !== "" && (
         <PageMobile
-          page={activeFolder.pages}
+          page={activeFolder?.pages}
           folder={activeFolder}
-          selected={0}
+          selected={selectedPageIdx}
           open={open}
           setOpen={setOpen}
           darkMode={darkMode}
           onUpdateTitle={handleUpdateTitle}
+          setSaved={setSaved}
         />
       )}
     </div>

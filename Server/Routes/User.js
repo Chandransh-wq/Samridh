@@ -2,6 +2,7 @@
 import express from "express";
 import { Folder, Page } from "../Schema/FolderSchema.js";
 import protectRoute from "../middleWare/authMiddleWare.js";
+import mongoose from "mongoose";
 
 const router = express.Router();
 
@@ -19,7 +20,7 @@ router.post("/folder-create", protectRoute, async (req, res) => {
       title: title,
       description: description,
       color: color,
-      favourite: favourite || false,
+      favourite: favourite,
       tags: tags || [],
       icons: icons,
       pages: [],
@@ -91,38 +92,48 @@ router.put("/page-create/:noteBookID", protectRoute, async (req, res) => {
 router.patch("/folder-update/:folderID", protectRoute, async (req, res) => {
   const { folderID } = req.params;
 
-  // FIX: Define the updates object correctly, referencing properties of req.body
-  const updates = {
-    title: req.body.title,
-    description: req.body.description,
-    color: req.body.color,
-    favourite: req.body.favourite,
-    tags: req.body.tags,
-    icons: req.body.icons,
-  };
-
-  // Alternative shorthand if you are okay with all fields from body going through:
-  // const updates = req.body;
-
   try {
-    // Find the folder and verify ownership simultaneously
+    // 1. Validate ID format immediately
+    if (!mongoose.Types.ObjectId.isValid(folderID)) {
+      return res.status(400).json({ message: "Invalid Folder ID format" });
+    }
+
+    // 2. Build dynamic update object (Only include what is sent)
+    const updates = {};
+    const fields = [
+      "title",
+      "description",
+      "color",
+      "favorite",
+      "tags",
+      "icons",
+    ];
+
+    fields.forEach((field) => {
+      if (req.body[field] !== undefined) {
+        updates[field] = req.body[field];
+      }
+    });
+
+    // 3. Perform the update
     const updatedFolder = await Folder.findOneAndUpdate(
       { _id: folderID, createdBy: req.user._id },
-      { $set: updates }, // Use $set to update only the fields provided in the body
-      { new: true, runValidators: true },
+      { $set: updates },
+      { new: true, runValidators: true }, // Validators only run on the fields being updated
     );
 
     if (!updatedFolder) {
-      return res
-        .status(404)
-        .json({ message: "Folder not found or you do not have permission." });
+      return res.status(404).json({
+        message: "Folder not found or you do not have permission.",
+      });
     }
 
-    res
-      .status(200)
-      .json({ message: "Folder updated successfully", data: updatedFolder });
+    res.status(200).json({
+      message: "Folder updated successfully",
+      data: updatedFolder,
+    });
   } catch (error) {
-    console.error(error);
+    console.error("PATCH Error:", error);
     res.status(500).json({
       message: "Server error during folder update",
       error: error.message,

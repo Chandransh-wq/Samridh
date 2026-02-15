@@ -219,10 +219,10 @@ const HomeDesktop: React.FC<HomeDesktopProps> = ({ darkMode }) => {
                         >
                           {/* TICKET HOLES - Scaled down for the small recent cards */}
                           <div
-                            className={`absolute top-[48%] -left-2 h-4 w-4 rounded-full ${darkMode ? "bg-zinc-800/50" : "bg-zinc-200"}`}
+                            className={`absolute bottom-[42px] -left-2 h-4 w-4 rounded-full ${darkMode ? "bg-zinc-800/50" : "bg-zinc-200"}`}
                           />
                           <div
-                            className={`absolute top-[48%] -right-2 h-4 w-4 rounded-full ${darkMode ? "bg-zinc-800/50" : "bg-zinc-200"}`}
+                            className={`absolute bottom-[42px] -right-2 h-4 w-4 rounded-full ${darkMode ? "bg-zinc-800/50" : "bg-zinc-200"}`}
                           />
 
                           {/* HEADER: Folder Dot & Page Title */}
