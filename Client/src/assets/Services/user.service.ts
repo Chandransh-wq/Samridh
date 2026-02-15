@@ -57,11 +57,7 @@ export const createPage = async (
       credintials,
     );
 
-    toast.success(
-      "Success",
-      `${credintials.title} has been created.`,
-      darkMode,
-    );
+    toast.success("Success", `A new page has been created.`, darkMode);
     return res;
   } catch (error: any) {
     const errorMessage =

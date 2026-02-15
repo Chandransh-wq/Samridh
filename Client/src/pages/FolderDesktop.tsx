@@ -121,11 +121,7 @@ const FolderDesktop: React.FC<FolderProps> = ({ darkMode }) => {
         setFolders((prev) => [...prev, newFolder]);
       } else {
         const newPage: sendPage = {
-          title: title
-            ? title
-            : activeFolder.pages.length == 0
-              ? " "
-              : "Untitled",
+          title: activeFolder.pages.length == 0 ? " " : "Untitled",
           pageContent: "",
           tags: selectedTags,
         };
