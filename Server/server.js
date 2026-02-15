@@ -13,13 +13,13 @@ connectDB();
 app.use(
   cors({
     origin: [
-      "https://samridh.netlify.app",
+      "https://samridh.vercel.app/",
       "http://localhost:3000",
       "http://localhost:3001",
     ],
     methods: ["GET", "POST", "DELETE", "PUT", "PATCH"],
     credentials: true,
-  })
+  }),
 );
 app.use(express.json());
 
