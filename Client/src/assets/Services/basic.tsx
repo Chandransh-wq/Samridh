@@ -4,7 +4,7 @@ import axios, {
   type InternalAxiosRequestConfig,
 } from "axios";
 
-const BASE_URL = import.meta.env.VITE_SERVER_API || "http://localhost:5000";
+const BASE_URL = "https://samridh-te5y.onrender.com" || "http://localhost:5000";
 
 export const publicApi = axios.create({ baseURL: BASE_URL });
 export const privateApi = axios.create({ baseURL: BASE_URL });
