@@ -34,6 +34,7 @@ const FolderMobile: React.FC<FolderMobileProps> = ({ darkMode }) => {
   const [selectedPageIdx, setSelectedPageIdx] = useState(-1);
   const [openNoti, setOpenNoti] = useState(false);
   const [open, setOpen] = useState(false);
+  console.log(selectedPageIdx);
 
   const [selectedOption, setSelectedOption] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
