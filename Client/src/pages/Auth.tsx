@@ -97,7 +97,7 @@ const Auth: React.FC<authProps> = ({ darkMode }) => {
       {/* DESKTOP VIEW */}
       <div
         className={`absolute left-0 w-screen h-screen hidden md:flex justify-center items-center overflow-hidden ${
-          darkMode ? "bg-gray-900" : "bg-gray-100"
+          darkMode ? "bg-gray-100" : "bg-gray-100"
         }`}
       >
         <div
