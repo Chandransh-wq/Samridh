@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { type folder, type Page as PageType } from "../assets/DemoData";
+import { TAGS, type folder, type Page as PageType } from "../assets/DemoData";
 import { Theme } from "../assets/Theme";
 import { AnimatePresence, motion } from "framer-motion";
 import Toolbar from "../Components/Toolbar";
-import { FiDownload, FiSearch } from "react-icons/fi";
+import { FiDownload, FiSave, FiSearch, FiTag } from "react-icons/fi";
 import Tooltip from "../Components/Tooltip";
+import { updatePage } from "../assets/Services/user.service";
+import type { sendPage } from "./FolderDesktop";
+import { useFolders } from "../assets/hooks/useFolder";
 
 interface PageProps {
   page: PageType[];
@@ -13,6 +16,7 @@ interface PageProps {
   open: boolean;
   setOpen: (value: boolean) => void;
   darkMode: boolean;
+  setSaved: (value: boolean) => void;
 
   onUpdateTitle: (
     pageIndex: number,
@@ -29,8 +33,12 @@ const Pages: React.FC<PageProps> = ({
   setOpen,
   darkMode,
   onUpdateTitle,
+  setSaved,
 }) => {
   const [index, setIndex] = useState(selected ?? 0);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [tagDialog, setTagDialog] = useState(false);
+  const { refreshFolders } = useFolders();
 
   useEffect(() => {
     if (open) document.body.style.overflowY = "hidden";
@@ -51,6 +59,10 @@ const Pages: React.FC<PageProps> = ({
     page && page[index] ? page[index].pageContent : "",
   );
 
+  useEffect(() => {
+    if (content.length > 1650) console.log("Stop");
+  }, [content]);
+
   // 2. Safe useEffect sync (Line 46)
   useEffect(() => {
     if (page && page[index]) {
@@ -67,6 +79,27 @@ const Pages: React.FC<PageProps> = ({
   const saveContent = () => {
     onUpdateTitle(index, title, content);
     setEditingContent(false);
+  };
+  const toggleTag = (tag: string) => {
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
+    );
+  };
+
+  const save = async () => {
+    try {
+      const updatedPage: sendPage = {
+        title: title,
+        pageContent: content,
+        tags: selectedTags,
+      };
+      await updatePage(updatedPage, darkMode, page[index]._id ?? "");
+      setSaved(true);
+      setTagDialog(false);
+    } catch (error) {
+      console.log(error);
+    }
+    await refreshFolders();
   };
 
   return (
@@ -117,23 +150,167 @@ const Pages: React.FC<PageProps> = ({
                 >
                   Close
                 </button>
-                <button className="p-2 rounded-full bg-blue-400 shadow text-white group">
+                <button
+                  className={`shadow-lg p-2 rounded-full bg-blue-400 text-white h-max w-max cursor-pointer group hover:scale-105 transition flex justify-center items-center
+            ${darkMode ? "border-[#626161]" : "border-black"}
+          `}
+                >
                   <FiDownload />
                   <Tooltip
-                    text="Download"
+                    text="Download the document"
                     darkMode={darkMode}
-                    className="top-full left-16 group-hover:block hidden"
+                    className="-top-1/2"
                   />
                 </button>
-                <button className="p-2 rounded-full bg-blue-400 shadow text-white group">
+                <button
+                  className={`shadow-lg p-2 rounded-full bg-blue-400 text-white h-max w-max cursor-pointer group hover:scale-105 transition flex justify-center items-center
+            ${darkMode ? "border-[#626161]" : "border-black"}
+          `}
+                >
                   <FiSearch />
                   <Tooltip
-                    text="Search Web"
+                    text="Search the web"
                     darkMode={darkMode}
-                    className="top-full left-16 group-hover:block hidden"
+                    className="-top-1/2"
+                  />
+                </button>
+                <button
+                  className={`shadow-lg p-2 rounded-full bg-blue-400 text-white h-max w-max cursor-pointer group hover:scale-105 transition flex justify-center items-center
+            ${darkMode ? "border-[#626161]" : "border-black"}
+          `}
+                  onClick={() => setTagDialog((prev) => !prev)}
+                >
+                  <FiTag />
+                  <Tooltip
+                    text="Add a tag"
+                    darkMode={darkMode}
+                    className="-top-1/2"
+                  />
+                </button>
+                <div
+                  onBlur={(e) => {
+                    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                      setTagDialog(false);
+                    }
+                  }}
+                >
+                  <AnimatePresence>
+                    {tagDialog && (
+                      <motion.div
+                        // 1. BLUR & FOCUS MANAGEMENT
+                        tabIndex={-1}
+                        autoFocus
+                        // 2. ENTRANCE ANIMATION
+                        initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                        className={`absolute top-16 left-5 p-3 rounded-b-2xl shadow-2xl border backdrop-blur-md flex flex-wrap gap-2 z-50 w-59 outline-none ${
+                          darkMode
+                            ? "bg-zinc-900/90 border-zinc-700 shadow-black/50"
+                            : "bg-white/90 border-zinc-200 shadow-zinc-200/50"
+                        }`}
+                      >
+                        {selectedTags.map((tag) => (
+                          <motion.div
+                            key={tag}
+                            layout // This makes the list "slide" when items are removed
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            whileHover={{
+                              scale: 1.05,
+                              backgroundColor: darkMode ? "#3b82f6" : "#2563eb",
+                              color: "#fff",
+                            }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => toggleTag(tag)}
+                            className={`px-3 py-1.5 flex items-center gap-1 rounded-xl text-xs font-bold cursor-pointer transition-colors duration-200 bg-blue-500 text-white`}
+                          >
+                            {tag}
+
+                            <span className="text-sm relative -top-px">×</span>
+                          </motion.div>
+                        ))}
+                        {/* 3. MAPPING TAGS WITH LAYOUT ANIMATION */}
+                        {TAGS.slice(0, 12)
+                          .filter((tag) => !selectedTags.includes(tag))
+                          .map((tag) => (
+                            <motion.div
+                              key={tag}
+                              layout // This makes the list "slide" when items are removed
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              whileHover={{
+                                scale: 1.05,
+                                backgroundColor: darkMode
+                                  ? "#3b82f6"
+                                  : "#2563eb",
+                                color: "#fff",
+                              }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={() => toggleTag(tag)}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-colors duration-200 ${
+                                darkMode
+                                  ? "bg-zinc-800 text-zinc-300"
+                                  : "bg-zinc-100 text-zinc-700"
+                              }`}
+                            >
+                              {tag}
+                            </motion.div>
+                          ))}
+                        <div className="relative flex items-center">
+                          <input
+                            type="text"
+                            placeholder="+ Custom Tag"
+                            className={`px-3 py-1 rounded-full text-xs font-bold outline-none border-2 border-dashed transition-all w-28 focus:w-40 ${
+                              darkMode
+                                ? "bg-transparent border-zinc-700 text-blue-400 focus:border-blue-500"
+                                : "bg-transparent border-zinc-300 text-blue-600 focus:border-blue-500"
+                            }`}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                const newTag = e.currentTarget.value.trim();
+                                if (newTag && !selectedTags.includes(newTag)) {
+                                  toggleTag(newTag); // Add to selection
+                                  e.currentTarget.value = ""; // Clear input
+                                }
+                              }
+                            }}
+                            onBlur={(e) => {
+                              const newTag = e.currentTarget.value.trim();
+                              if (newTag && !selectedTags.includes(newTag)) {
+                                toggleTag(newTag); // Add to selection
+                                e.currentTarget.value = ""; // Clear input
+                              }
+                            }}
+                          />
+                        </div>
+
+                        {/* 4. EMPTY STATE */}
+                        {TAGS.filter((tag) => !selectedTags.includes(tag))
+                          .length === 0 && (
+                          <span className="text-[10px] opacity-40 italic p-2">
+                            All tags selected
+                          </span>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+                <button
+                  className={`shadow-lg p-2 rounded-full bg-blue-400 text-white h-max w-max cursor-pointer group hover:scale-105 transition flex justify-center items-center
+            ${darkMode ? "border-[#626161]" : "border-black"}
+          `}
+                  onClick={() => save()}
+                >
+                  <FiSave />
+                  <Tooltip
+                    text="Save the document"
+                    darkMode={darkMode}
+                    className="-top-1/2"
                   />
                 </button>
               </div>
+
               <div>
                 <Toolbar darkMode={darkMode} />
               </div>
@@ -144,56 +321,115 @@ const Pages: React.FC<PageProps> = ({
               <div className="col-span-1 gap-2 flex flex-col max-h-screen overflow-auto myscrollbar p-1 text-left">
                 {folder.pages.map((p, idx) => (
                   <div
-                    key={idx}
-                    className={`${
-                      darkMode
-                        ? `${Theme.dark.secondary} shadow-[#66666673]`
-                        : Theme.light.background
-                    } shadow p-4 rounded-2xl mb-3 cursor-pointer`}
+                    key={p._id || idx}
+                    className={`relative overflow-hidden p-4 rounded-lg mb-4 text-left cursor-pointer transition-all duration-300 border-2 ${
+                      index === idx
+                        ? "bg-blue-500/10 border-blue-500 shadow-lg shadow-blue-500/20"
+                        : darkMode
+                          ? `${Theme.dark.secondary} border-transparent shadow-md hover:border-zinc-700`
+                          : `${Theme.light.background} border-transparent shadow-sm hover:border-zinc-200`
+                    }`}
                     onClick={() => setIndex(idx)}
                   >
-                    <span className="font-semibold text-lg mb-2">{p.page}</span>
+                    {/* LEFT HOLE */}
+                    <div
+                      className={`absolute bottom-[50px] -left-3 h-6 w-6 rounded-full z-20 ${
+                        darkMode ? "bg-zinc-950" : "bg-zinc-50 shadow-inner"
+                      }`}
+                    />
 
-                    <p className="text-sm opacity-80 leading-snug">
-                      {p.pageContent?.slice(0, 75)}
-                      {p.pageContent?.length > 75 ? "..." : ""}
-                    </p>
+                    {/* RIGHT HOLE */}
+                    <div
+                      className={`absolute bottom-[50px] -right-3 h-6 w-6 rounded-full z-20 ${
+                        darkMode ? "bg-zinc-950" : "bg-zinc-50 shadow-inner"
+                      }`}
+                    />
 
-                    <div className="flex gap-2 flex-wrap mt-2">
-                      {p.tags?.map((tag, tIdx) => (
+                    <div className="relative z-10">
+                      {/* HEADER & STATUS DOT */}
+                      <div className="flex justify-between items-start mb-1">
                         <span
-                          key={tIdx}
-                          className="px-2 py-1 text-xs rounded-md bg-zinc-500/20"
+                          className={`font-bold text-lg leading-tight transition-colors ${
+                            index === idx
+                              ? "text-blue-500"
+                              : darkMode
+                                ? "text-white"
+                                : "text-black"
+                          }`}
                         >
-                          {tag}
+                          {p.page || "Untitled Page"}
                         </span>
-                      ))}
-                    </div>
+                      </div>
 
-                    <div className="text-xs opacity-50 mt-2 flex flex-col">
-                      <span>
-                        Created:{" "}
-                        {new Date(p.createdAt || Date.now()).toLocaleDateString(
-                          "en-US",
-                          {
-                            weekday: "long",
-                            day: "numeric",
-                            month: "short",
-                          },
-                        )}
-                      </span>
+                      {/* CONTENT PREVIEW */}
+                      <p className="text-xs leading-relaxed opacity-60 line-clamp-2 min-h-[32px]">
+                        {p.pageContent?.slice(0, 75)}
+                        {p.pageContent?.length > 75 ? "..." : ""}
+                      </p>
 
-                      <span>
-                        Last Edited:{" "}
-                        {new Date(p.updatedAt || Date.now()).toLocaleDateString(
-                          "en-US",
-                          {
-                            weekday: "long",
-                            day: "numeric",
-                            month: "short",
-                          },
-                        )}
-                      </span>
+                      {/* TAGS */}
+                      <div className="flex gap-1.5 flex-wrap mt-3">
+                        {p.tags?.map((tag, tIdx) => (
+                          <span
+                            key={tIdx}
+                            className={`px-2 py-0.5 text-[9px] font-black uppercase rounded ${
+                              index === idx
+                                ? "bg-blue-500 text-white"
+                                : "bg-zinc-500/20 text-zinc-400"
+                            }`}
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+
+                      {/* PERFORATION & DATES */}
+                      <div
+                        className={`mt-5 pt-4 border-t-2 border-dashed flex justify-between items-end transition-colors ${
+                          index === idx
+                            ? "border-blue-500/30"
+                            : "border-zinc-500/10"
+                        }`}
+                      >
+                        <div className="flex flex-col gap-0.5 font-mono text-[10px]">
+                          <span className="opacity-40 uppercase text-[8px]  font-bold tracking-widest">
+                            Last Edited{" "}
+                          </span>
+                          <span className="opacity-70">
+                            {new Date(
+                              p.updatedAt || Date.now(),
+                            ).toLocaleDateString("en-US", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              hour12: true,
+                            })}
+                          </span>
+                        </div>
+
+                        <span
+                          className={`text-[10px] font-black flex items-center w-20 gap-3 justify-center uppercase tracking-tighter ${
+                            index === idx ? "text-blue-500" : "opacity-0"
+                          }`}
+                        >
+                          {index == idx
+                            ? editingContent || editingTitle
+                              ? "Editing"
+                              : "Reading"
+                            : "Stored"}
+                          <div
+                            className={`w-2 h-2 rounded-full relative -top-1 mt-2 ${
+                              index === idx
+                                ? editingContent || editingTitle
+                                  ? "bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.8)]"
+                                  : "bg-blue-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.8)]"
+                                : "bg-zinc-500/30"
+                            }`}
+                          />
+                        </span>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -206,7 +442,7 @@ const Pages: React.FC<PageProps> = ({
                   {editingTitle ? (
                     <input
                       autoFocus
-                      className="text-xl font-semibold bg-transparent border-b border-zinc-400 outline-none w-full"
+                      className="text-xl font-semibold bg-transparent border-b pb-2 border-zinc-400 outline-none w-full"
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
                       onKeyDown={(e) => {
@@ -217,10 +453,10 @@ const Pages: React.FC<PageProps> = ({
                     />
                   ) : (
                     <h2
-                      className="text-xl font-semibold cursor-text text-left"
+                      className="text-xl font-semibold cursor-text text-left border-b border-zinc-300 pb-2"
                       onClick={() => setEditingTitle(true)}
                     >
-                      {title}
+                      {title.length == 1 ? "Untitled" : title}
                     </h2>
                   )}
 
@@ -228,7 +464,7 @@ const Pages: React.FC<PageProps> = ({
                     {editingContent ? (
                       <textarea
                         autoFocus
-                        className="text-md font-normal bg-transparent outline-none border-b w-full max-h-[90vh] min-h-[75vh] myscrollbar overflow-y-auto resize-none"
+                        className="text-md font-normal bg-transparent outline-none w-full max-h-[90vh] min-h-[75vh] myscrollbar overflow-y-auto resize-none"
                         value={content}
                         onChange={(e) => setContent(e.target.value)}
                         onKeyDown={(e) => {
@@ -239,14 +475,14 @@ const Pages: React.FC<PageProps> = ({
                       />
                     ) : (
                       <div
-                        className="cursor-text overflow-auto mynewscrollbar"
+                        className="cursor-text overflow-auto mynewscrollbar max-h-[90vh] min-h-[75vh]"
                         style={{
                           whiteSpace: "pre-wrap",
                           maxHeight: "70vh", // or 75vh, choose what fits your layout
                         }}
                         onClick={() => setEditingContent(true)}
                       >
-                        {content}
+                        {content.length == 0 ? "Temporary" : content}
                       </div>
                     )}
                   </div>

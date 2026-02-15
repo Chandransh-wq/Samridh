@@ -11,7 +11,7 @@ export interface resInt {
 export const allFolders = async () => {
   try {
     const res: resInt = await apiRequest(privateApi, "get", "/user/getAll");
-    console.log(res.data);
+
     return res.data;
   } catch (error: any) {
     console.error("Error fetching folders:", error);
@@ -49,6 +49,7 @@ export const createPage = async (
 ) => {
   try {
     const cleanFolderId = folderId.trim();
+    console.log(credintials);
 
     const res = await apiRequest(
       privateApi,
@@ -60,6 +61,35 @@ export const createPage = async (
     toast.success(
       "Success",
       `${credintials.title} has been created.`,
+      darkMode,
+    );
+    return res;
+  } catch (error: any) {
+    const errorMessage =
+      error.response?.data?.message || "Failed to create page";
+    toast.error("Error", errorMessage, darkMode);
+    console.error("Create page error:", error);
+  }
+};
+
+export const updatePage = async (
+  credintials: sendPage,
+  darkMode: boolean,
+  pageId: string,
+) => {
+  try {
+    const cleanPageId = pageId.trim();
+    console.log(credintials);
+    const res = await apiRequest(
+      privateApi,
+      "patch",
+      `/user/page-update/${cleanPageId}`,
+      credintials,
+    );
+
+    toast.success(
+      "Success",
+      `${credintials.title} has been updated.`,
       darkMode,
     );
     return res;

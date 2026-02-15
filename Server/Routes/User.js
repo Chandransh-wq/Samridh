@@ -130,6 +130,61 @@ router.patch("/folder-update/:folderID", protectRoute, async (req, res) => {
   }
 });
 
+// Corrected Route
+router.delete("/folder-delete/:folderId", protectRoute, async (req, res) => {
+  // Use the exact name from the URL parameter (:folderId)
+  const { folderId } = req.params;
+
+  try {
+    const folder = await Folder.findById(folderId);
+
+    if (!folder) {
+      return res.status(404).json({ message: "No such folder exists" });
+    }
+
+    // Optional: Check if the user owns this folder before deleting
+    // if (folder.user.toString() !== req.user._id.toString()) {
+    //   return res.status(403).json({ message: "Not authorized" });
+    // }
+
+    await folder.deleteOne();
+
+    // Send a 200 (Success) or 204 (No Content) status
+    res.status(200).json({ message: "Folder deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error during deletion" });
+    console.log(error);
+  }
+});
+
+// Corrected Route
+router.delete("/page-delete/:pageId", protectRoute, async (req, res) => {
+  // Use the exact name from the URL parameter (:folderId)
+  const { pageId } = req.params;
+
+  try {
+    const page = await Page.findById(pageId);
+
+    if (!page) {
+      return res.status(404).json({ message: "No such page exists" });
+    }
+
+    // Optional: Check if the user owns this folder before deleting
+    // if (folder.user.toString() !== req.user._id.toString()) {
+    //   return res.status(403).json({ message: "Not authorized" });
+    // }
+
+    await page.deleteOne();
+
+    // Send a 200 (Success) or 204 (No Content) status
+    res.status(200).json({ message: "Page deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error during deletion" });
+  }
+});
+
 // PATCH /user/page-update/:pageID
 router.patch("/page-update/:pageID", protectRoute, async (req, res) => {
   const { pageID } = req.params;

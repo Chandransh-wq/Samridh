@@ -19,9 +19,9 @@ privateApi.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 
 export const apiRequest = async <T,>(
   instance: AxiosInstance, // Fixes: Unexpected any.
-  method: "get" | "post" | "put" | "delete",
+  method: "get" | "post" | "put" | "delete" | "patch",
   url: string,
-  data?: unknown
+  data?: unknown,
 ): Promise<T> => {
   const response: AxiosResponse<T> = await instance({ method, url, data });
   return response.data;

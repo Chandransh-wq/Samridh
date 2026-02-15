@@ -46,6 +46,16 @@ const FolderDesktop: React.FC<FolderProps> = ({ darkMode }) => {
   const [favourite, setFavourite] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [save, setSaved] = useState(false);
+
+  useEffect(() => {
+    const refresh = async () => {
+      if (save) await refreshFolders();
+
+      setSaved(false);
+    };
+    refresh();
+  }, [save]);
 
   const toggleTag = (tag: string) => {
     setSelectedTags((prev) =>
@@ -104,9 +114,13 @@ const FolderDesktop: React.FC<FolderProps> = ({ darkMode }) => {
         };
         await createFolder(newFolder, darkMode);
         setFolders((prev) => [...prev, newFolder]);
-      } else if (selectedOption === "Topic") {
+      } else {
         const newPage: sendPage = {
-          title: title,
+          title: title
+            ? title
+            : activeFolder.pages.length == 0
+              ? " "
+              : "Untitled",
           pageContent: "",
           tags: selectedTags,
         };
@@ -207,10 +221,6 @@ const FolderDesktop: React.FC<FolderProps> = ({ darkMode }) => {
               elements={[
                 {
                   name: "Folder",
-                  setSelectedOption: (value) => setSelectedOption(value),
-                },
-                {
-                  name: "Topic",
                   setSelectedOption: (value) => setSelectedOption(value),
                 },
               ]}
@@ -525,14 +535,14 @@ const FolderDesktop: React.FC<FolderProps> = ({ darkMode }) => {
                           >
                             {/* LEFT HOLE - The 'Ticket' Cut-out */}
                             <div
-                              className={`absolute top-[58%] -left-3 h-6 w-6 rounded-full z-10 shadow-inner ${
+                              className={`absolute bottom-[55px] -left-3 h-6 w-6 rounded-full z-10 shadow-inner ${
                                 darkMode ? "bg-[#111111ed]" : "bg-zinc-200"
                               }`}
                             />
 
                             {/* RIGHT HOLE */}
                             <div
-                              className={`absolute top-[58%] -right-3 h-6 w-6 rounded-full z-10 shadow-inner ${
+                              className={`absolute bottom-[55px] -right-3 h-6 w-6 rounded-full z-10 shadow-inner ${
                                 darkMode ? "bg-[#111111ed]" : "bg-zinc-200"
                               }`}
                             />
@@ -607,13 +617,13 @@ const FolderDesktop: React.FC<FolderProps> = ({ darkMode }) => {
                         <motion.div
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 0.5 }}
-                          className="mt-32 text-center flex flex-col items-center gap-2"
+                          className="mt-32 text-center cursor-crosshair flex flex-col items-center gap-2"
                         >
                           <div
                             className="h-10 w-10 rounded-full border-2 border-dashed border-zinc-500 flex items-center justify-center text-black hover:rotate-90 transition-all duration-500"
                             onClick={() => {
                               setSelected(activeFolder._id ?? "");
-                              setSelectedOption("Topic");
+                              handleCreate();
                             }}
                           >
                             <span
@@ -824,6 +834,7 @@ const FolderDesktop: React.FC<FolderProps> = ({ darkMode }) => {
         setOpen={setOpen}
         darkMode={darkMode}
         onUpdateTitle={handleUpdateTitle}
+        setSaved={setSaved}
       />
     </div>
   );
