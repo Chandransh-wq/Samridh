@@ -12,12 +12,7 @@ connectDB();
 
 app.use(
   cors({
-    origin: [
-      "https://samridh.vercel.app",
-      "https://samridh-final-77-nllnkakgg-pranab-choudharys-projects.vercel.app",
-      "http://localhost:3000",
-      "http://localhost:3001",
-    ],
+    origin: true,
     methods: ["GET", "POST", "DELETE", "PUT", "PATCH"],
     credentials: true,
   }),
