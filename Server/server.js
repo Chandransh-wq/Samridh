@@ -12,7 +12,7 @@ connectDB();
 
 app.use(
   cors({
-    origin: true,
+    origin: ["https://samridhwk.netlify.app", "http://localhost:3000"],
     methods: ["GET", "POST", "DELETE", "PUT", "PATCH"],
     credentials: true,
   }),
