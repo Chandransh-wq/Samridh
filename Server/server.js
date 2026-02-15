@@ -14,6 +14,7 @@ app.use(
   cors({
     origin: [
       "https://samridh.vercel.app",
+      "https://samridh-final-77.vercel.app",
       "http://localhost:3000",
       "http://localhost:3001",
     ],
