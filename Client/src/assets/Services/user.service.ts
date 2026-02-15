@@ -100,3 +100,49 @@ export const updatePage = async (
     console.error("Create page error:", error);
   }
 };
+
+export const deletePage = async (
+  pageId: string,
+  darkMode: boolean,
+  title: string,
+) => {
+  try {
+    const cleanPageId = pageId.trim();
+    toast.info("In Progress", `Page ${title} is being deleted`, darkMode);
+    const res = await apiRequest(
+      privateApi,
+      "delete",
+      `/user/page-delete/${cleanPageId}`,
+    );
+    toast.success("Success", `Page ${title} has been deleted.`, darkMode);
+    return res;
+  } catch (error: any) {
+    const errorMessage =
+      error.response?.data?.message || "Failed to create page";
+    toast.error("Error", errorMessage, darkMode);
+    console.error("Create page error:", error);
+  }
+};
+
+export const deleteFolder = async (
+  folderId: string,
+  darkMode: boolean,
+  title: string,
+) => {
+  try {
+    const cleanFolderId = folderId.trim();
+    toast.info("In Progress", `Folder ${title} is being deleted`, darkMode);
+    const res = await apiRequest(
+      privateApi,
+      "delete",
+      `/user/folder-delete/${cleanFolderId}`,
+    );
+    toast.success("Success", `Folder ${title} has been deleted.`, darkMode);
+    return res;
+  } catch (error: any) {
+    const errorMessage =
+      error.response?.data?.message || "Failed to create page";
+    toast.error("Error", errorMessage, darkMode);
+    console.error("Create page error:", error);
+  }
+};

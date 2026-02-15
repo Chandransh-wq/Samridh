@@ -7,7 +7,7 @@ import {
   getRandomColor,
   illustration,
 } from "../assets/BaasicFunctions";
-import { FiHeart, FiLogOut } from "react-icons/fi";
+import { FiHeart, FiLogOut, FiTrash } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import { logoutUser } from "../utils/authServies";
 import DropDown from "../Components/DropDown";
@@ -16,7 +16,11 @@ import Input from "../Components/Input";
 import Pages from "./Page";
 import Notification from "../Components/notification";
 import Tooltip from "../Components/Tooltip";
-import { createFolder, createPage } from "../assets/Services/user.service";
+import {
+  createFolder,
+  createPage,
+  deleteFolder,
+} from "../assets/Services/user.service";
 import { toast } from "../utils/Toast";
 import { useFolders } from "../assets/hooks/useFolder";
 // @ts-ignore: Suppression of casing error
@@ -139,6 +143,15 @@ const FolderDesktop: React.FC<FolderProps> = ({ darkMode }) => {
   };
   const [openNoti, setOpenNoti] = useState(false);
   const activeFolder = folders.find((f) => f._id === selected) || folders[0];
+
+  const handleDelete = async () => {
+    try {
+      await deleteFolder(activeFolder._id ?? "", darkMode, activeFolder.title);
+      await refreshFolders();
+    } catch (error) {
+      toast.error("Error", "There was an error", darkMode);
+    }
+  };
 
   return (
     <div>
@@ -471,21 +484,30 @@ const FolderDesktop: React.FC<FolderProps> = ({ darkMode }) => {
                         <span className="font-semibold text-base tracking-tight">
                           {activeFolder?.title || "Select a Folder"}
                         </span>
-
-                        <motion.div
-                          whileTap={{ scale: 0.8 }}
-                          whileHover={{ scale: 1.1 }}
-                        >
-                          {activeFolder?.favorite || activeFolder?.favorite ? (
-                            <FaHeart className="text-red-500 drop-shadow-sm" />
-                          ) : (
-                            <FiHeart
-                              className={
-                                darkMode ? "text-zinc-500" : "text-zinc-400"
-                              }
-                            />
-                          )}
-                        </motion.div>
+                        <div className="flex items-center gap-1">
+                          <div
+                            className="h-max w-max p-1 bg-red-300 rounded-full hover:scale-105 transition-all duration-100"
+                            onClick={() => handleDelete()}
+                          >
+                            <FiTrash size={12} className="text-red-950" />
+                          </div>
+                          <motion.div
+                            whileTap={{ scale: 0.8 }}
+                            whileHover={{ scale: 1.1 }}
+                            className="flex items-center"
+                          >
+                            {activeFolder?.favorite ||
+                            activeFolder?.favorite ? (
+                              <FaHeart className="text-red-500 drop-shadow-sm" />
+                            ) : (
+                              <FiHeart
+                                className={
+                                  darkMode ? "text-zinc-500" : "text-zinc-400"
+                                }
+                              />
+                            )}
+                          </motion.div>
+                        </div>
                       </div>
 
                       <div className="flex gap-2 flex-wrap">
