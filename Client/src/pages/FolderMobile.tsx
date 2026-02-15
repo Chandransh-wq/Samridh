@@ -21,6 +21,7 @@ import Input from "../Components/Input";
 import { TAGS, type folder } from "../assets/DemoData";
 import Loader from "../Components/Loader";
 import type { sendPage } from "./FolderDesktop";
+import { toast } from "../utils/Toast";
 
 interface FolderMobileProps {
   darkMode: boolean;
@@ -30,6 +31,8 @@ const FolderMobile: React.FC<FolderMobileProps> = ({ darkMode }) => {
   const navigate = useNavigate();
   const { folders, setFolders, loading, refreshFolders } = useFolders();
   const [selected, setSelected] = useState<string | null>(null);
+
+  console.log(selected);
 
   // Logic: Use _id for selection to prevent Masonry/Filter bugs
   const [selectedId, setSelectedId] = useState<string | null>("");
