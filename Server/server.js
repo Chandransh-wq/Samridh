@@ -13,7 +13,7 @@ connectDB();
 app.use(
   cors({
     origin: [
-      "https://samridh.vercel.app/",
+      "https://samridh.vercel.app",
       "http://localhost:3000",
       "http://localhost:3001",
     ],
