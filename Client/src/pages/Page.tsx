@@ -142,14 +142,12 @@ const Pages: React.FC<PageProps> = ({
             <div className="flex justify-between items-center mb-1">
               <div className="flex gap-2 items-center">
                 <button
-                  onClick={() => {
-                    setOpen(false);
-                    setIndex(0);
-                  }}
-                  className="px-3 py-1 bg-red-500 text-white rounded-md"
+                  onClick={() => setOpen(false)}
+                  className="px-4 py-1.5 bg-red-500/10 text-red-500 font-bold rounded-full text-xs uppercase tracking-widest transition-all duration-400 hover:bg-red-500 hover:text-white"
                 >
                   Close
                 </button>
+
                 <button
                   className={`shadow-lg p-2 rounded-full bg-blue-400 text-white h-max w-max cursor-pointer group hover:scale-105 transition flex justify-center items-center
             ${darkMode ? "border-[#626161]" : "border-black"}
@@ -410,8 +408,12 @@ const Pages: React.FC<PageProps> = ({
                         </div>
 
                         <span
-                          className={`text-[10px] font-black flex items-center w-20 gap-3 justify-center uppercase tracking-tighter ${
-                            index === idx ? "text-blue-500" : "opacity-0"
+                          className={`text-[10px] font-semibold flex items-center w-20 gap-3 justify-center uppercase tracking-tighter ${
+                            index === idx
+                              ? "text-blue-500"
+                              : darkMode
+                                ? "text-white"
+                                : "text-black"
                           }`}
                         >
                           {index == idx

@@ -171,10 +171,9 @@ const FolderDesktop: React.FC<FolderProps> = ({ darkMode }) => {
       // 2. Capture the server's response
       const response = await updateFolder(updatedFolder, darkMode, folderId);
 
-      console.log(response);
-
       // 4. Update the global list for the sidebar/other components
       await refreshFolders();
+      return response;
     } catch (error) {
       console.error("Failed to update favorite status:", error);
     }

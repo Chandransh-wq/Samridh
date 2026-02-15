@@ -24,7 +24,7 @@ const ToastProvider: React.FC = () => {
     <ToastContainer>
       {toasts.map((t) => (
         <Toast
-          key={t.title + t.des + Math.random} // unique key
+          key={t.title + t.des + Math.random()} // unique key
           title={t.title}
           des={t.des}
           type={t.type}

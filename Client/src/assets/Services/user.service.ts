@@ -49,7 +49,6 @@ export const createPage = async (
 ) => {
   try {
     const cleanFolderId = folderId.trim();
-    console.log(credintials);
 
     const res = await apiRequest(
       privateApi,
@@ -79,7 +78,6 @@ export const updatePage = async (
 ) => {
   try {
     const cleanPageId = pageId.trim();
-    console.log(credintials);
     const res = await apiRequest(
       privateApi,
       "patch",

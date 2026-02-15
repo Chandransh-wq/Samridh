@@ -6,7 +6,7 @@ import {
   getRandomColor,
   illustration,
 } from "../assets/BaasicFunctions";
-import { FiHeart, FiLogOut } from "react-icons/fi";
+import { FiHeart, FiLogOut, FiPlus } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import { logoutUser } from "../utils/authServies";
 import { AnimatePresence, motion } from "framer-motion";
@@ -18,8 +18,9 @@ import NotificationMobile from "../Components/notificationMobile";
 import DropDown from "../Components/DropDown";
 import { MdCancel } from "react-icons/md";
 import Input from "../Components/Input";
-import { TAGS } from "../assets/DemoData";
+import { TAGS, type folder } from "../assets/DemoData";
 import Loader from "../Components/Loader";
+import type { sendPage } from "./FolderDesktop";
 
 interface FolderMobileProps {
   darkMode: boolean;
@@ -28,6 +29,7 @@ interface FolderMobileProps {
 const FolderMobile: React.FC<FolderMobileProps> = ({ darkMode }) => {
   const navigate = useNavigate();
   const { folders, setFolders, loading, refreshFolders } = useFolders();
+  const [selected, setSelected] = useState<string | null>(null);
 
   // Logic: Use _id for selection to prevent Masonry/Filter bugs
   const [selectedId, setSelectedId] = useState<string | null>("");
@@ -35,7 +37,6 @@ const FolderMobile: React.FC<FolderMobileProps> = ({ darkMode }) => {
   const [selectedPageIdx, setSelectedPageIdx] = useState(-1);
   const [openNoti, setOpenNoti] = useState(false);
   const [open, setOpen] = useState(false);
-  console.log(selectedPageIdx);
 
   const [selectedOption, setSelectedOption] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -102,34 +103,39 @@ const FolderMobile: React.FC<FolderMobileProps> = ({ darkMode }) => {
   const handleCreate = async () => {
     try {
       if (selectedOption === "Folder") {
-        const newFolder: any = {
-          title,
-          description,
-          color: selectedColor || "rgb(59, 130, 246)",
-          favourite: favourite,
+        const newFolder: folder = {
+          title: title,
+          description: description,
+          color: selectedColor || COLORS_Light[0],
+          favorite: favourite,
+          updatedAt: `Date.now()`,
           tags: selectedTags,
+          icon: <div></div>,
+          pages: [],
         };
         await createFolder(newFolder, darkMode);
-      } else if (selectedOption === "Topic") {
-        const newPage = {
-          title,
+        setFolders((prev) => [...prev, newFolder]);
+      } else {
+        const newPage: sendPage = {
+          title: title
+            ? title
+            : activeFolder.pages.length == 0
+              ? " "
+              : "Untitled",
           pageContent: "",
           tags: selectedTags,
         };
-        // Logic: Send the ID directly from state, no DOM selection needed
-        await createPage(newPage, darkMode, selectedId ?? "");
+        await createPage(newPage, darkMode, activeFolder._id ?? "");
       }
-
-      await refreshFolders(); // Sync UI with Database
-
-      // Reset UI States
+      await refreshFolders();
       setSelectedOption("");
       setSelectedTags([]);
-      setTitle("");
-      setDescription("");
+      setSelectedColor("");
       setFavourite(false);
+      setDialogOpen(false);
     } catch (error) {
-      console.error("Creation Error:", error);
+      console.log(error);
+      toast.error("Error", "There was an error", darkMode);
     }
   };
 
@@ -168,10 +174,7 @@ const FolderMobile: React.FC<FolderMobileProps> = ({ darkMode }) => {
           <span className="font-bold text-lg">FOLDERS</span>
 
           <div className="flex gap-5 z-50 relative">
-            <span
-              className="h-max w-max rounded-full hover:bg-zinc-800/30 bg-zinc-400/50 p-2 transition-all group duration-75"
-              onClick={() => setDialogOpen(true)}
-            >
+            <span className="h-max w-max rounded-full hover:bg-zinc-800/30 bg-zinc-400/50 p-2 transition-all group duration-75">
               <FaPlus size={14} />
               <Tooltip
                 text="Add"
@@ -301,14 +304,28 @@ const FolderMobile: React.FC<FolderMobileProps> = ({ darkMode }) => {
                     {activeFolder?.title}
                   </span>
                 </div>
-
-                <motion.span
-                  whileTap={{ scale: 0.8 }}
-                  className="p-1 opacity-50 hover:opacity-100 transition-opacity"
-                  onClick={() => setSelectedId("")}
-                >
-                  <MdCancel size={28} />
-                </motion.span>
+                <div className="flex items-center gap-2">
+                  <div
+                    className="h-max w-max p-1 rounded-full border-2 border-dashed border-zinc-500 flex items-center justify-center text-black hover:rotate-90 transition-all duration-500"
+                    onClick={() => {
+                      setSelected(activeFolder._id ?? "");
+                      handleCreate();
+                    }}
+                  >
+                    <span
+                      className={`${darkMode ? "text-white" : "text-black"} relative `}
+                    >
+                      <FiPlus size={20} />
+                    </span>
+                  </div>
+                  <motion.span
+                    whileTap={{ scale: 0.8 }}
+                    className="p-1 transition-opacity"
+                    onClick={() => setSelectedId("")}
+                  >
+                    <MdCancel size={28} className="text-red-500" />
+                  </motion.span>
+                </div>
               </div>
 
               {/* TICKET LIST AREA */}
