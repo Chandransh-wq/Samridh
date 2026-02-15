@@ -176,7 +176,10 @@ const FolderMobile: React.FC<FolderMobileProps> = ({ darkMode }) => {
         >
           <span className="font-bold text-lg">FOLDERS</span>
 
-          <div className="flex gap-5 z-50 relative">
+          <div
+            className="flex gap-5 z-50 relative"
+            onClick={() => setSelectedOption("Folder")}
+          >
             <span className="h-max w-max rounded-full hover:bg-zinc-800/30 bg-zinc-400/50 p-2 transition-all group duration-75">
               <FaPlus size={14} />
               <Tooltip
