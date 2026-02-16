@@ -557,7 +557,7 @@ const PageMobile: React.FC<PageProps> = ({
                 )}
               </div>
               {/* STATUS INDICATOR UI */}
-              <div className="z-10 relative -top-[4rem] left-60 h-max w-max flex items-center">
+              <div className="z-10 relative -top-[3rem] left-60 h-max w-max flex items-center">
                 <AnimatePresence mode="wait">
                   {isSaving ? (
                     <motion.div
