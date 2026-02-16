@@ -52,15 +52,19 @@ const FolderDesktop: React.FC<FolderProps> = ({ darkMode }) => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [save, setSaved] = useState(false);
+  const [deleted, setDeleted] = useState(false);
+  const [showDialog, setShowDialog] = useState(false);
 
   useEffect(() => {
     const refresh = async () => {
       if (save) await refreshFolders();
+      if (deleted) await refreshFolders();
 
       setSaved(false);
+      setDeleted(false);
     };
     refresh();
-  }, [save]);
+  }, [save, deleted]);
 
   const toggleTag = (tag: string) => {
     setSelectedTags((prev) =>
@@ -145,6 +149,7 @@ const FolderDesktop: React.FC<FolderProps> = ({ darkMode }) => {
     try {
       await deleteFolder(activeFolder._id ?? "", darkMode, activeFolder.title);
       await refreshFolders();
+      setShowDialog(false);
     } catch (error) {
       toast.error("Error", "There was an error", darkMode);
       console.log(error);
@@ -152,26 +157,41 @@ const FolderDesktop: React.FC<FolderProps> = ({ darkMode }) => {
   };
 
   const updateFavorite = async () => {
-    try {
-      // 1. Calculate the new state (Simplified toggle)
-      const newFavourite = !activeFolder.favorite;
+    const folderId = activeFolder._id;
+    if (!folderId) return;
 
+    // 1. Capture original state for rollback
+    const previousFavorite = activeFolder.favorite;
+    const newFavorite = !previousFavorite;
+
+    // 2. IMMEDIATE UI UPDATE
+    // This updates the global 'folders' state instantly
+    setFolders((prev) =>
+      prev.map((f) =>
+        f._id === folderId ? { ...f, favorite: newFavorite } : f,
+      ),
+    );
+
+    try {
       const updatedFolder: folder = {
         ...activeFolder,
-        favorite: newFavourite,
+        favorite: newFavorite,
       };
 
-      const folderId = activeFolder._id ?? "";
-      if (!folderId) return;
+      // 3. Run API call in background (removed 'response' capture if not needed immediately)
+      await updateFolder(updatedFolder, darkMode, folderId);
 
-      // 2. Capture the server's response
-      const response = await updateFolder(updatedFolder, darkMode, folderId);
-
-      // 4. Update the global list for the sidebar/other components
-      await refreshFolders();
-      return response;
+      // 4. Background sync (no 'await' here so UI isn't blocked)
+      refreshFolders();
     } catch (error) {
+      // 5. ROLLBACK on error
+      setFolders((prev) =>
+        prev.map((f) =>
+          f._id === folderId ? { ...f, favorite: previousFavorite } : f,
+        ),
+      );
       console.error("Failed to update favorite status:", error);
+      // Optional: add a toast notice here
     }
   };
 
@@ -194,14 +214,14 @@ const FolderDesktop: React.FC<FolderProps> = ({ darkMode }) => {
         >
           {/* HEADER */}
           <div
-            className={`flex flex-row justify-between items-center relative z-9999 px-16 py-5 ${
+            className={`flex flex-row justify-between items-center relative z-20 px-16 py-5 ${
               darkMode
                 ? `${Theme.dark.primary} text-white`
                 : `${Theme.light.secondary} shadow text-black`
             }`}
           >
             <span className="font-bold text-lg">FOLDERS</span>
-            <div className="flex gap-5 z-50 relative">
+            <div className="flex gap-5 z-35 relative">
               <span
                 className="h-max w-max rounded-full hover:bg-zinc-800/30 bg-zinc-400/50 p-2 transition-all group duration-75"
                 onClick={() => setDialogOpen(true)}
@@ -250,7 +270,7 @@ const FolderDesktop: React.FC<FolderProps> = ({ darkMode }) => {
               open={dialogOpen}
               setOpen={setDialogOpen}
               title="Select what to Add"
-              className={`right-32 top-[3.85rem] z-999 rounded-t-none ${
+              className={`right-32 top-[4.5rem] z-25 rounded-t-none ${
                 darkMode ? Theme.dark.secondary : "bg-gray-500"
               }`}
               elements={[
@@ -307,7 +327,7 @@ const FolderDesktop: React.FC<FolderProps> = ({ darkMode }) => {
                             )}
 
                             {/* Folder Header */}
-                            <div className="flex justify-between items-start mb-4">
+                            <div className="flex justify-between relative z-2 items-start mb-4">
                               <div
                                 className="h-84 w-84 rounded-2xl bg-zinc-500/10 p-2 flex items-center justify-center"
                                 dangerouslySetInnerHTML={{
@@ -508,10 +528,13 @@ const FolderDesktop: React.FC<FolderProps> = ({ darkMode }) => {
                         </span>
                         <div className="flex items-center gap-1">
                           <div
-                            className="h-max w-max p-1 bg-red-300 rounded-full hover:scale-105 transition-all duration-100"
-                            onClick={() => handleDelete()}
+                            className="h-max w-max p-1.5 bg-red-300 rounded-full hover:scale-105 transition-all duration-100"
+                            onClick={() => setShowDialog(true)}
                           >
-                            <FiTrash size={12} className="text-red-950" />
+                            <FiTrash
+                              size={12}
+                              className="text-red-950 relative left-[0.1px]"
+                            />
                           </div>
                           <motion.div
                             whileTap={{ scale: 0.8 }}
@@ -531,6 +554,59 @@ const FolderDesktop: React.FC<FolderProps> = ({ darkMode }) => {
                             )}
                           </motion.div>
                         </div>
+                        <AnimatePresence>
+                          {showDialog && (
+                            <div className="fixed inset-0 flex items-center justify-center p-4 z-9999">
+                              {/* 1. BACKDROP */}
+                              <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                onClick={() => setShowDialog(false)}
+                                className={`absolute inset-0  bg-black/40 backdrop-blur-sm`}
+                              />
+
+                              {/* 2. DIALOG CARD */}
+                              <motion.div
+                                initial={{ scale: 0.95, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0.95, opacity: 0 }}
+                                className={`relative z-90 w-full max-w-md overflow-hidden rounded-xl  p-6 shadow-2xl ${darkMode ? "dark:bg-zinc-900" : "bg-white"}`}
+                              >
+                                <h2
+                                  className={`text-xl font-semibold ${darkMode ? "text-zinc-100" : "text-zinc-900"}`}
+                                >
+                                  Confirm Deletion
+                                </h2>
+                                <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+                                  Are you sure you want to delete{" "}
+                                  <span
+                                    className={`font-medium ${darkMode ? "text-zinc-200" : "text-zinc-900"}`}
+                                  >
+                                    {activeFolder.title}
+                                  </span>
+                                  ? This action cannot be undone.
+                                </p>
+
+                                {/* 3. ACTION BUTTONS */}
+                                <div className="mt-6 flex justify-end gap-3">
+                                  <button
+                                    onClick={() => setShowDialog(false)}
+                                    className={`rounded-lg px-4 py-2 text-sm font-medium text-zinc-600 transition-colors duration-200 ${!darkMode ? "hover:bg-zinc-200 dark:text-zinc-400" : "hover:bg-zinc-800"}    `}
+                                  >
+                                    No, cancel
+                                  </button>
+                                  <button
+                                    onClick={() => handleDelete()}
+                                    className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 active:bg-red-800"
+                                  >
+                                    Yes, delete page
+                                  </button>
+                                </div>
+                              </motion.div>
+                            </div>
+                          )}
+                        </AnimatePresence>
                       </div>
 
                       <div className="flex gap-2 flex-wrap">
@@ -880,6 +956,7 @@ const FolderDesktop: React.FC<FolderProps> = ({ darkMode }) => {
         darkMode={darkMode}
         onUpdateTitle={handleUpdateTitle}
         setSaved={setSaved}
+        setDeleted={setDeleted}
       />
     </div>
   );

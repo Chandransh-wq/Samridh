@@ -30,9 +30,7 @@ interface FolderMobileProps {
 const FolderMobile: React.FC<FolderMobileProps> = ({ darkMode }) => {
   const navigate = useNavigate();
   const { folders, setFolders, loading, refreshFolders } = useFolders();
-  const [selected, setSelected] = useState<string | null>(null);
-
-  console.log(selected);
+  const [_selected, setSelected] = useState<string | null>(null);
 
   // Logic: Use _id for selection to prevent Masonry/Filter bugs
   const [selectedId, setSelectedId] = useState<string | null>("");
@@ -49,15 +47,18 @@ const FolderMobile: React.FC<FolderMobileProps> = ({ darkMode }) => {
   const [description, setDescription] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [save, setSaved] = useState(false);
+  const [deleted, setDeleted] = useState(false);
 
   useEffect(() => {
     const refresh = async () => {
       if (save) await refreshFolders();
+      if (deleted) await refreshFolders();
 
       setSaved(false);
+      setDeleted(false);
     };
     refresh();
-  }, [save]);
+  }, [save, deleted]);
 
   const toggleTag = (tag: string) => {
     setSelectedTags((prev) =>
@@ -352,10 +353,10 @@ const FolderMobile: React.FC<FolderMobileProps> = ({ darkMode }) => {
                     >
                       {/* TICKET CUT-OUTS (Holes) */}
                       <div
-                        className={`absolute top-[60%] -left-3 h-6 w-6 rounded-full z-10 ${darkMode ? "bg-zinc-950" : "bg-zinc-200"}`}
+                        className={`absolute bottom-[58px] -left-3 h-6 w-6 rounded-full z-10 ${darkMode ? "bg-zinc-950" : "bg-zinc-200"}`}
                       />
                       <div
-                        className={`absolute top-[60%] -right-3 h-6 w-6 rounded-full z-10 ${darkMode ? "bg-zinc-950" : "bg-zinc-200"}`}
+                        className={`absolute bottom-[58px] -right-3 h-6 w-6 rounded-full z-10 ${darkMode ? "bg-zinc-950" : "bg-zinc-200"}`}
                       />
 
                       <div className="text-left w-full text-xl font-bold tracking-tight mb-2">
@@ -627,6 +628,7 @@ const FolderMobile: React.FC<FolderMobileProps> = ({ darkMode }) => {
           darkMode={darkMode}
           onUpdateTitle={handleUpdateTitle}
           setSaved={setSaved}
+          setDeleted={setDeleted}
         />
       )}
     </div>

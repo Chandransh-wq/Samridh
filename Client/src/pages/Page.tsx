@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { TAGS, type folder, type Page as PageType } from "../assets/DemoData";
 import { Theme } from "../assets/Theme";
 import { AnimatePresence, motion } from "framer-motion";
 import Toolbar from "../Components/Toolbar";
-import { FiDownload, FiSave, FiSearch, FiTag } from "react-icons/fi";
+import { FiDownload, FiSave, FiSearch, FiTag, FiTrash } from "react-icons/fi";
 import Tooltip from "../Components/Tooltip";
-import { updatePage } from "../assets/Services/user.service";
+import { deletePage, updatePage } from "../assets/Services/user.service";
 import type { sendPage } from "./FolderDesktop";
 import { useFolders } from "../assets/hooks/useFolder";
 
@@ -17,6 +17,7 @@ interface PageProps {
   setOpen: (value: boolean) => void;
   darkMode: boolean;
   setSaved: (value: boolean) => void;
+  setDeleted: (value: boolean) => void;
 
   onUpdateTitle: (
     pageIndex: number,
@@ -34,11 +35,20 @@ const Pages: React.FC<PageProps> = ({
   darkMode,
   onUpdateTitle,
   setSaved,
+  setDeleted,
 }) => {
   const [index, setIndex] = useState(selected ?? 0);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [tagDialog, setTagDialog] = useState(false);
   const { refreshFolders } = useFolders();
+  const [showDialog, setShowDialog] = useState(false);
+  // 1. New State for visual feedback
+  const [isSaving, setIsSaving] = useState(false);
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!page || page.length == 0) setOpen(false);
+  }, [page, setOpen]);
 
   useEffect(() => {
     if (open) document.body.style.overflowY = "hidden";
@@ -86,27 +96,113 @@ const Pages: React.FC<PageProps> = ({
     );
   };
 
-  const save = async () => {
+  // 1. Wrap save in useCallback so it doesn't trigger the useEffect unnecessarily
+  const save = useCallback(async () => {
+    if (autoSaveTimer.current) {
+      clearTimeout(autoSaveTimer.current);
+      autoSaveTimer.current = null;
+    }
+
+    const currentPage = page[index];
+    if (!currentPage) return;
+
     try {
+      setIsSaving(true);
       const updatedPage: sendPage = {
         title: title,
         pageContent: content,
         tags: selectedTags,
       };
-      await updatePage(updatedPage, darkMode, page[index]._id ?? "");
+
+      await updatePage(updatedPage, darkMode, currentPage._id ?? "");
+
       setSaved(true);
       setTagDialog(false);
+      setIsSaving(false);
+      refreshFolders();
+    } catch (error) {
+      console.error("Save Error:", error);
+      setIsSaving(false);
+    }
+  }, [
+    title,
+    content,
+    selectedTags,
+    index,
+    page,
+    darkMode,
+    refreshFolders,
+    setSaved,
+  ]);
+
+  // 2. The Auto-Save Effect is now safe
+  useEffect(() => {
+    const currentPage = page?.[index];
+    if (!currentPage) return;
+
+    const isDirty =
+      title !== (currentPage.page || "") ||
+      content !== (currentPage.pageContent || "") ||
+      JSON.stringify(selectedTags) !== JSON.stringify(currentPage.tags || []);
+
+    if (!isDirty) return;
+
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+
+    autoSaveTimer.current = setTimeout(() => {
+      setEditingTitle(false);
+      save();
+    }, 1000);
+
+    return () => {
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    };
+  }, [title, content, selectedTags, index, page, save]); // 'save' is now stable
+
+  // 4. Update handleDelete for Index Safety
+  const handleDelete = async () => {
+    const pageId = page[index]?._id;
+    if (!pageId) return;
+
+    try {
+      // Shift index locally first if on last page to prevent "undefined" crash
+      if (index > 0 && index === page.length - 1) {
+        setIndex(index - 1);
+      }
+
+      await deletePage(pageId, darkMode, page[index].page ?? "");
+      setDeleted(true); // Signal parent
+      setShowDialog(false);
+      await refreshFolders();
     } catch (error) {
       console.log(error);
     }
-    await refreshFolders();
   };
+
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: any) => {
+      // If the dialog is open and the click target is NOT inside the dialog, close it
+      if (
+        tagDialog &&
+        dialogRef.current &&
+        !dialogRef.current.contains(event.target)
+      ) {
+        setTagDialog(false);
+      }
+    };
+
+    // Attach listener to the entire document
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [tagDialog]);
 
   return (
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-9999"
+          className="fixed inset-0 z-[9999]"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -196,6 +292,7 @@ const Pages: React.FC<PageProps> = ({
                     {tagDialog && (
                       <motion.div
                         // 1. BLUR & FOCUS MANAGEMENT
+                        ref={dialogRef}
                         tabIndex={-1}
                         autoFocus
                         // 2. ENTRANCE ANIMATION
@@ -307,7 +404,109 @@ const Pages: React.FC<PageProps> = ({
                     className="-top-1/2"
                   />
                 </button>
+                {/* STATUS INDICATOR UI */}
+                <div className="z-10 h-max w-max flex items-center">
+                  <AnimatePresence mode="wait">
+                    {isSaving ? (
+                      <motion.div
+                        key="sav"
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        className={`shadow-lg px-4 py-2 rounded-full bg-blue-400 text-white flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest border transition
+          ${darkMode ? "border-[#626161]" : "border-black"}
+        `}
+                      >
+                        <div className="h-1.5 w-1.5 animate-ping rounded-full bg-white" />
+                        Saving...
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key="syn"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className={`shadow-md px-4 py-2 rounded-full flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest border transition opacity-50
+          ${
+            darkMode
+              ? "bg-zinc-800 border-zinc-700 text-zinc-400"
+              : "bg-zinc-100 border-zinc-200 text-zinc-500"
+          }
+        `}
+                      >
+                        <div className="h-1.5 w-1.5 rounded-full bg-current" />
+                        Synced
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                <button
+                  className={`shadow-lg p-2 rounded-full bg-red-400 text-white h-max w-max cursor-pointer group hover:scale-105 transition flex justify-center items-center
+            ${darkMode ? "border-[#626161]" : "border-black"}
+          `}
+                  onClick={() => setShowDialog(true)}
+                >
+                  <FiTrash />
+                  <Tooltip
+                    text="Delete the page"
+                    darkMode={darkMode}
+                    className="-top-1/2"
+                  />
+                </button>
               </div>
+              <AnimatePresence>
+                {showDialog && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    {/* 1. BACKDROP */}
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      onClick={() => setShowDialog(false)}
+                      className={`absolute inset-0 bg-black/40 backdrop-blur-sm`}
+                    />
+
+                    {/* 2. DIALOG CARD */}
+                    <motion.div
+                      initial={{ scale: 0.95, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.95, opacity: 0 }}
+                      className={`relative w-full max-w-md overflow-hidden rounded-xl  p-6 shadow-2xl ${darkMode ? "dark:bg-zinc-900" : "bg-white"}`}
+                    >
+                      <h2
+                        className={`text-xl font-semibold ${darkMode ? "text-zinc-100" : "text-zinc-900"}`}
+                      >
+                        Confirm Deletion
+                      </h2>
+                      <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+                        Are you sure you want to delete{" "}
+                        <span
+                          className={`font-medium ${darkMode ? "text-zinc-200" : "text-zinc-900"}`}
+                        >
+                          {page[index].page}
+                        </span>
+                        ? This action cannot be undone.
+                      </p>
+
+                      {/* 3. ACTION BUTTONS */}
+                      <div className="mt-6 flex justify-end gap-3">
+                        <button
+                          onClick={() => setShowDialog(false)}
+                          className={`rounded-lg px-4 py-2 text-sm font-medium text-zinc-600 transition-colors duration-200 ${!darkMode ? "hover:bg-zinc-200 dark:text-zinc-400" : "hover:bg-zinc-800"}    `}
+                        >
+                          No, cancel
+                        </button>
+                        <button
+                          onClick={() => handleDelete()}
+                          className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 active:bg-red-800"
+                        >
+                          Yes, delete page
+                        </button>
+                      </div>
+                    </motion.div>
+                  </div>
+                )}
+              </AnimatePresence>
 
               <div>
                 <Toolbar darkMode={darkMode} />

@@ -81,11 +81,6 @@ export const updatePage = async (
       credintials,
     );
 
-    toast.success(
-      "Success",
-      `${credintials.title} has been updated.`,
-      darkMode,
-    );
     return res;
   } catch (error: any) {
     const errorMessage =
@@ -109,11 +104,6 @@ export const updateFolder = async (
       credintials,
     );
 
-    toast.success(
-      "Success",
-      `${credintials.title} has been updated.`,
-      darkMode,
-    );
     return res;
   } catch (error: any) {
     const errorMessage =

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { TAGS, type folder, type Page as PageType } from "../assets/DemoData";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -8,17 +8,13 @@ import {
   FiSave,
   FiSearch,
   FiTag,
+  FiTrash,
 } from "react-icons/fi";
 import { useFolders } from "../assets/hooks/useFolder";
-import { updatePage } from "../assets/Services/user.service";
+import { deletePage, updatePage } from "../assets/Services/user.service";
 import Tooltip from "../Components/Tooltip";
 
 // Local interface to match your desktop implementation
-interface sendPage {
-  title: string;
-  pageContent: string;
-  tags: string[];
-}
 
 interface PageProps {
   page: PageType[];
@@ -28,6 +24,7 @@ interface PageProps {
   setOpen: (value: boolean) => void;
   darkMode: boolean;
   setSaved: (value: boolean) => void;
+  setDeleted: (value: boolean) => void;
   onUpdateTitle: (
     pageIndex: number,
     newTitle: string,
@@ -43,6 +40,7 @@ const PageMobile: React.FC<PageProps> = ({
   darkMode,
   onUpdateTitle,
   setSaved,
+  setDeleted,
 }) => {
   const [index, setIndex] = useState(selected ?? 0);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -53,29 +51,25 @@ const PageMobile: React.FC<PageProps> = ({
   const [editingContent, setEditingContent] = useState(false);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [showDialog, setShowDialog] = useState(false);
 
-  // 1. Sync local index if the selected prop changes from parent
+  // Auto-save Status States
+  const [isSaving, setIsSaving] = useState(false);
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 1. Sync Index when prop changes
   useEffect(() => {
     if (selected !== undefined) setIndex(selected);
   }, [selected]);
 
-  // 2. Sync Title, Content, and Tags whenever the index or page data changes
+  // 2. IMPORTANT: Only sync local text when switching PAGES (prevents overwrites while typing)
   useEffect(() => {
     if (page && page[index]) {
       setTitle(page[index].page || "");
       setContent(page[index].pageContent || "");
       setSelectedTags(page[index].tags || []);
     }
-  }, [index, page]);
-
-  // 3. Handle Body Scroll Lock
-  useEffect(() => {
-    if (open) document.body.style.overflowY = "hidden";
-    else document.body.style.overflowY = "auto";
-    return () => {
-      document.body.style.overflowY = "auto";
-    };
-  }, [open]);
+  }, [index]);
 
   const saveTitle = () => {
     onUpdateTitle(index, title, content);
@@ -86,36 +80,131 @@ const PageMobile: React.FC<PageProps> = ({
     onUpdateTitle(index, title, content);
     setEditingContent(false);
   };
+
+  // 3. Handle Body Scroll Lock
+  useEffect(() => {
+    document.body.style.overflowY = open ? "hidden" : "auto";
+    return () => {
+      document.body.style.overflowY = "auto";
+    };
+  }, [open]);
+
+  // 4. Modal Auto-Close
+  useEffect(() => {
+    if (!page || page.length === 0) setOpen(false);
+  }, [page, setOpen]);
+
+  // 5. MEMOIZED SAVE FUNCTION (Snapshot safe)
+  const save = useCallback(
+    async (snapshot?: { id: string; t: string; c: string; tags: string[] }) => {
+      // Clear any pending timer if save is called (manual or auto)
+      if (autoSaveTimer.current) {
+        clearTimeout(autoSaveTimer.current);
+        autoSaveTimer.current = null;
+      }
+
+      const targetId = snapshot?.id || page[index]?._id;
+      if (!targetId) return;
+
+      try {
+        setIsSaving(true);
+
+        // Map your local 'title' state to the 'page' key the backend expects
+        const updatedPage: any = {
+          title: snapshot?.t ?? title, // <--- This MUST match the backend key 'page'
+          pageContent: snapshot?.c ?? content,
+          tags: snapshot?.tags ?? selectedTags,
+        };
+
+        const targetId = snapshot?.id || page[index]?._id;
+        if (!targetId) return;
+
+        await updatePage(updatedPage, darkMode, targetId);
+        setSaved(true);
+        setIsSaving(false);
+
+        // ... rest of logic
+      } catch (error) {
+        console.error("Save Error:", error);
+      }
+    },
+    [title, content, selectedTags, index, page, darkMode],
+  );
+
+  // 6. AUTO-SAVE & SWITCH-SAVE EFFECT
+  useEffect(() => {
+    const currentPage = page?.[index];
+    if (!currentPage) return;
+
+    const snapshot = {
+      id: currentPage._id ?? "",
+      t: title,
+      c: content,
+      tags: [...selectedTags],
+    };
+
+    const isDirty =
+      title !== (currentPage.page || "") ||
+      content !== (currentPage.pageContent || "") ||
+      JSON.stringify(selectedTags) !== JSON.stringify(currentPage.tags || []);
+
+    if (!isDirty) return;
+
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+
+    autoSaveTimer.current = setTimeout(() => {
+      save(snapshot);
+    }, 1500); // 1.5s for Mobile
+
+    return () => {
+      if (autoSaveTimer.current) {
+        clearTimeout(autoSaveTimer.current);
+        // FORCE INSTANT SAVE IF LEAVING PAGE
+        if (isDirty && snapshot.id) {
+          setIsSaving(true);
+          save(snapshot);
+          setIsSaving(false);
+        }
+      }
+    };
+  }, [title, content, selectedTags, index, save]);
+
+  const handleDelete = async () => {
+    const pageId = page[index]?._id;
+    if (!pageId) return;
+    try {
+      if (index > 0 && index === page.length - 1) {
+        setIndex(index - 1);
+      }
+      await deletePage(pageId, darkMode, page[index].page ?? "");
+      setDeleted(true);
+      setShowDialog(false);
+      await refreshFolders();
+    } catch (error) {
+      console.log("Delete Error:", error);
+    }
+  };
+
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handleClickOutside = (event: any) => {
+      if (
+        tagDialog &&
+        dialogRef.current &&
+        !dialogRef.current.contains(event.target)
+      ) {
+        setTagDialog(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [tagDialog]);
+
+  if (!page || !page[index]) return null;
   const toggleTag = (tag: string) => {
     setSelectedTags((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
     );
-  };
-
-  // 4. Integrated Save Logic (Matches Desktop Backend Sync)
-  const save = async () => {
-    const currentPage = page[index];
-    if (!currentPage) return;
-
-    try {
-      const updatedPage: sendPage = {
-        title: title,
-        pageContent: content,
-        tags: selectedTags,
-      };
-
-      await updatePage(updatedPage, darkMode, currentPage._id ?? "");
-
-      setSaved(true);
-      setTagDialog(false);
-
-      // Reset saved notification after 2 seconds
-      setTimeout(() => setSaved(false), 2000);
-
-      await refreshFolders();
-    } catch (error) {
-      console.error("Mobile Save Error:", error);
-    }
   };
 
   return (
@@ -135,19 +224,50 @@ const PageMobile: React.FC<PageProps> = ({
 
           {/* TICKET MODAL */}
           <motion.div
-            initial={{ y: "100%", scale: 0.9 }}
+            initial={{ y: "100%", scale: 1 }}
             animate={{ y: 0, scale: 1 }}
             exit={{ y: "100%", scale: 0.9 }}
-            className={`relative top-8 max-h-screen min-h-screen min-w-[calc(100vw-1rem)] overflow-hidden rounded-t-lg shadow-2xl flex flex-col ${
+            transition={{
+              type: "tween", // "tween" removes the spring physics entirely
+              ease: "easeOut",
+              duration: 0.1,
+            }}
+            className={`relative top-2 max-h-screen min-h-screen min-w-[calc(100vw-1rem)] overflow-hidden rounded-t-lg shadow-2xl flex flex-col ${
               darkMode ? "bg-zinc-900 text-white" : "bg-white text-black"
             }`}
           >
+            {/* LOWER TICKET STUB */}
+            <div className="p-4 bg-zinc-500/5 border-b-2 border-dashed border-zinc-500/20">
+              <div className="text-[10px] font-mono flex flex-col gap-1">
+                <div className="flex justify-between opacity-40">
+                  <span>CREATED</span>
+                  <span>
+                    {new Date(
+                      page[index]?.createdAt || Date.now(),
+                    ).toLocaleDateString("en-GB")}
+                  </span>
+                </div>
+                <div
+                  className={`flex justify-between font-bold ${darkMode ? "text-blue-400" : "text-blue-600"}`}
+                >
+                  <span>LAST EDITED</span>
+                  <span>
+                    {new Date(
+                      page[index]?.updatedAt || Date.now(),
+                    ).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                </div>
+              </div>
+            </div>
             {/* TICKET HOLES (Sides) */}
             <div
-              className={`absolute top-[14.4%] -left-4 h-8 w-8 rounded-full z-20 ${darkMode ? "bg-zinc-800/80" : "bg-zinc-200"}`}
+              className={`absolute top-[22.35%] -left-4 h-8 w-8 rounded-full z-20 ${darkMode ? "bg-zinc-800/80" : "bg-zinc-200"}`}
             />
             <div
-              className={`absolute top-[14.4%] -right-4 h-8 w-8 rounded-full z-20 ${darkMode ? "bg-zinc-800/80" : "bg-zinc-200"}`}
+              className={`absolute top-[22.35%] -right-4 h-8 w-8 rounded-full z-20 ${darkMode ? "bg-zinc-800/80" : "bg-zinc-200"}`}
             />
 
             {/* UPPER TICKET STUB */}
@@ -192,6 +312,7 @@ const PageMobile: React.FC<PageProps> = ({
                       {tagDialog && (
                         <motion.div
                           // 1. BLUR & FOCUS MANAGEMENT
+                          ref={dialogRef}
                           tabIndex={-1}
                           autoFocus
                           // 2. ENTRANCE ANIMATION
@@ -299,11 +420,77 @@ const PageMobile: React.FC<PageProps> = ({
                   </div>
                   <button
                     className="shadow-lg p-2 rounded-full bg-blue-400 text-white h-max w-max cursor-pointer active:scale-95 transition flex justify-center items-center"
-                    onClick={save}
+                    onClick={() => save()}
                   >
                     <FiSave />
                   </button>
+                  <button
+                    className={`shadow-lg p-2 rounded-full bg-red-400 text-white h-max w-max cursor-pointer group hover:scale-105 transition flex justify-center items-center
+            ${darkMode ? "border-[#626161]" : "border-black"}
+          `}
+                    onClick={() => setShowDialog(true)}
+                  >
+                    <FiTrash />
+                    <Tooltip
+                      text="Delete the page"
+                      darkMode={darkMode}
+                      className="-top-1/2"
+                    />
+                  </button>
                 </div>
+                <AnimatePresence>
+                  {showDialog && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                      {/* 1. BACKDROP */}
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setShowDialog(false)}
+                        className={`absolute inset-0 bg-black/40 backdrop-blur-sm`}
+                      />
+
+                      {/* 2. DIALOG CARD */}
+                      <motion.div
+                        initial={{ scale: 0.95, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0.95, opacity: 0 }}
+                        className={`relative w-full max-w-md overflow-hidden rounded-xl  p-6 shadow-2xl ${darkMode ? "dark:bg-zinc-900" : "bg-white"}`}
+                      >
+                        <h2
+                          className={`text-xl font-semibold ${darkMode ? "text-zinc-100" : "text-zinc-900"}`}
+                        >
+                          Confirm Deletion
+                        </h2>
+                        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+                          Are you sure you want to delete{" "}
+                          <span
+                            className={`font-medium ${darkMode ? "text-zinc-200" : "text-zinc-900"}`}
+                          >
+                            {page[index].page}
+                          </span>
+                          ? This action cannot be undone.
+                        </p>
+
+                        {/* 3. ACTION BUTTONS */}
+                        <div className="mt-6 flex justify-end gap-3">
+                          <button
+                            onClick={() => setShowDialog(false)}
+                            className={`rounded-lg px-4 py-2 text-sm font-medium text-zinc-600 transition-colors duration-200 ${!darkMode ? "hover:bg-zinc-200 dark:text-zinc-400" : "hover:bg-zinc-800"}    `}
+                          >
+                            No, cancel
+                          </button>
+                          <button
+                            onClick={() => handleDelete()}
+                            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 active:bg-red-800"
+                          >
+                            Yes, delete page
+                          </button>
+                        </div>
+                      </motion.div>
+                    </div>
+                  )}
+                </AnimatePresence>
               </div>
 
               {/* Pager Logic */}
@@ -338,7 +525,7 @@ const PageMobile: React.FC<PageProps> = ({
                   className="text-2xl font-bold bg-transparent outline-none w-full border-b-2 border-blue-500 pb-1"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  onBlur={saveTitle}
+                  onBlur={() => saveTitle()}
                   onKeyDown={(e) => e.key === "Enter" && saveTitle()}
                 />
               ) : (
@@ -354,14 +541,14 @@ const PageMobile: React.FC<PageProps> = ({
                 {editingContent ? (
                   <textarea
                     autoFocus
-                    className="w-full max-h-[62vh] min-h-[60vh] bg-transparent outline-none text-md leading-relaxed resize-none font-normal"
+                    className="w-full max-h-[58vh] min-h-[56vh] bg-transparent outline-none text-md leading-relaxed resize-none font-normal"
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
-                    onBlur={saveContent}
+                    onBlur={() => saveContent()}
                   />
                 ) : (
                   <div
-                    className="text-md leading-relaxed opacity-80 cursor-pointer max-h-[62vh] min-h-[60vh]"
+                    className="text-md leading-relaxed opacity-80 cursor-pointer max-h-[58vh] min-h-[57vh]"
                     style={{ whiteSpace: "pre-wrap" }}
                     onClick={() => setEditingContent(true)}
                   >
@@ -369,32 +556,40 @@ const PageMobile: React.FC<PageProps> = ({
                   </div>
                 )}
               </div>
-            </div>
-
-            {/* LOWER TICKET STUB */}
-            <div className="p-6 bg-zinc-500/5 border-t-2 border-dashed border-zinc-500/20">
-              <div className="text-[10px] font-mono flex flex-col gap-1">
-                <div className="flex justify-between opacity-40">
-                  <span>CREATED</span>
-                  <span>
-                    {new Date(
-                      page[index]?.createdAt || Date.now(),
-                    ).toLocaleDateString("en-GB")}
-                  </span>
-                </div>
-                <div
-                  className={`flex justify-between font-bold ${darkMode ? "text-blue-400" : "text-blue-600"}`}
-                >
-                  <span>LAST EDITED</span>
-                  <span>
-                    {new Date(
-                      page[index]?.updatedAt || Date.now(),
-                    ).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </span>
-                </div>
+              {/* STATUS INDICATOR UI */}
+              <div className="z-10 relative -top-[4rem] left-60 h-max w-max flex items-center">
+                <AnimatePresence mode="wait">
+                  {isSaving ? (
+                    <motion.div
+                      key="sav"
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      className={`shadow-lg px-4 py-2 rounded-full bg-blue-400 text-white flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest border transition
+                          ${darkMode ? "border-[#626161]" : "border-black"}
+                        `}
+                    >
+                      <div className="h-1.5 w-1.5 animate-ping rounded-full bg-white" />
+                      Saving...
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="syn"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className={`shadow-md px-4 py-2 rounded-full flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest border transition opacity-50
+                          ${
+                            darkMode
+                              ? "bg-zinc-800 border-zinc-700 text-zinc-400"
+                              : "bg-zinc-100 border-zinc-200 text-zinc-500"
+                          }
+                        `}
+                    >
+                      <div className="h-1.5 w-1.5 rounded-full bg-current" />
+                      Synced
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
           </motion.div>

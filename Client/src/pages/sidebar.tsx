@@ -28,7 +28,7 @@ const SidebarDesktop: React.FC<SidebarProps> = ({ darkMode, setDarkMode }) => {
     <div
       className={`w-fit ${
         darkMode ? "bg-zinc-950" : "bg-zinc-50"
-      } h-[calc(100%-0.5rem)] mt-1 fixed left-2 py-5 px-2 z-10 rounded-full flex flex-col items-center justify-between`}
+      } h-[calc(100%-0.5rem)] mt-1 fixed left-2 py-5 px-2 z-1 rounded-full flex flex-col items-center justify-between`}
       style={{
         boxShadow: darkMode
           ? "rgb(255 255 255 / 4%) -1px 10px 20px 0px"
@@ -206,7 +206,7 @@ const SidebarMobile: React.FC<SidebarProps> = ({ darkMode, setDarkMode }) => {
 const Sidebar: React.FC<SidebarProps> = ({ darkMode, setDarkMode }) => {
   return (
     <>
-      <div className="hidden md:block">
+      <div className="hidden md:block relative z-1">
         <SidebarDesktop darkMode={darkMode} setDarkMode={setDarkMode} />
       </div>
 
