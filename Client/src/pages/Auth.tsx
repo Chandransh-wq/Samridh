@@ -122,14 +122,14 @@ const Auth: React.FC<authProps> = ({ darkMode }) => {
           <div className="space-y-2">
             {registering && (
               <Input
-                darkMode={darkMode}
+                darkMode={false}
                 placeholder="Enter your name"
                 type="text"
                 onChange={(e) => setUserName(e.target.value)}
               />
             )}
             <Input
-              darkMode={darkMode}
+              darkMode={false}
               placeholder="Enter your email-ID"
               type="text"
               onChange={(e) => setEmail(e.target.value)}
