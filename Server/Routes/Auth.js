@@ -1,5 +1,5 @@
 import express from "express";
-import UserSchema from "../Schema/UserSchema.js"; // Importing your exact schema
+import UserSchema from "../Schema/UserSchema.js";
 import jwt from "jsonwebtoken";
 
 const router = express.Router();
