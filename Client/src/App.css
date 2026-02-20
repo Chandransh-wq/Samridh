@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 #root {
   max-width: 1280px;
@@ -6,11 +7,11 @@
   text-align: center;
 }
 
-/* 1. The Container handles the 'trail' effect using a blur filter */
+/* --- Animation & Blob Logic (Preserved) --- */
 .path-container {
   position: relative;
-  filter: contrast(20); /* Sharpens the blur into a solid line */
-  background: white; /* Required for the contrast filter to work */
+  filter: contrast(20);
+  background: white;
   height: 500px;
 }
 
@@ -18,9 +19,6 @@
   width: max-content;
   height: max-content;
   border-radius: 50%;
-
-  /* This creates the 'liquid' trail */
-
   animation: draw 4s ease-in-out infinite;
 }
 
@@ -32,7 +30,6 @@
     transform: translate(1rem, 5rem) rotate(-15deg);
   }
   45% {
-    /* Combined your vertical and horizontal movement into one transform */
     transform: translate(-4rem, 7rem) rotate(45deg);
   }
   65% {
@@ -44,4 +41,24 @@
   100% {
     transform: translate(0, 10rem) rotate(-30deg);
   }
+}
+
+/* Remove vertical spacing between paragraphs and lists in prose */
+.prose
+  :where(p, ul, ol, li, h1, h2, h3, h4):not(
+    :where([class~="not-prose"], [class~="not-prose"] *)
+  ) {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+/* Optional: Tighten line height for the whole container */
+.prose {
+  line-height: 1.25 !important; /* Equivalent to leading-tight */
+}
+
+/* Ensure list items don't have internal padding/margin gaps */
+.prose li {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
 }

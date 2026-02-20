@@ -3,11 +3,26 @@ import { TAGS, type folder, type Page as PageType } from "../assets/DemoData";
 import { Theme } from "../assets/Theme";
 import { AnimatePresence, motion } from "framer-motion";
 import Toolbar from "../Components/Toolbar";
-import { FiDownload, FiSave, FiSearch, FiTag, FiTrash } from "react-icons/fi";
+import remarkBreaks from "remark-breaks";
+import {
+  FiChevronRight,
+  FiDownload,
+  FiSave,
+  FiSearch,
+  FiTag,
+  FiTrash,
+} from "react-icons/fi";
 import Tooltip from "../Components/Tooltip";
 import { deletePage, updatePage } from "../assets/Services/user.service";
 import type { sendPage } from "./FolderDesktop";
 import { useFolders } from "../assets/hooks/useFolder";
+import getCaretCoordinates from "textarea-caret";
+import { searchWeb } from "../assets/Services/api.service";
+import Loader2 from "../Components/Loader2";
+import ReactMarkdown from "react-markdown";
+
+import rehypeRaw from "rehype-raw";
+import ToolbarFloat from "../Components/ToolbarFloat";
 
 interface PageProps {
   page: PageType[];
@@ -25,6 +40,28 @@ interface PageProps {
     newContent?: string,
   ) => void;
 }
+
+interface download {
+  title: string;
+  desc: string;
+  darkMode: boolean;
+}
+
+const DownloadCard: React.FC<download> = ({ title, desc, darkMode }) => (
+  <button
+    className={`w-full text-left p-3 rounded-xl border transition-all flex items-center justify-between group ${
+      darkMode
+        ? "border-white/5 hover:bg-white/5 hover:border-white/10"
+        : "border-gray-100 hover:bg-gray-50 hover:border-gray-200"
+    }`}
+  >
+    <div>
+      <div className="text-xs font-bold">{title}</div>
+      <div className="text-[10px] opacity-50 font-medium">{desc}</div>
+    </div>
+    <FiChevronRight className="opacity-0 group-hover:opacity-100 transition-opacity" />
+  </button>
+);
 
 const Pages: React.FC<PageProps> = ({
   page,
@@ -45,6 +82,41 @@ const Pages: React.FC<PageProps> = ({
   // 1. New State for visual feedback
   const [isSaving, setIsSaving] = useState(false);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [selectedText, setSelectedText] = useState<string>("");
+  const [newSelectedText, setNewSelectedText] = useState<string>("");
+  const [secondaryDialogs, setSecondaryDialogs] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [query, setQuery] = useState<string>("");
+  const [loadingResponse, setLoadingResponse] = useState<boolean>(false);
+  const [showTools, setShowTools] = useState<boolean>(false);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+
+  const handleSelect = (e: any) => {
+    const { selectionStart, selectionEnd, value } = e.target;
+
+    if (selectionStart !== selectionEnd) {
+      const selection = value.substring(selectionStart, selectionEnd);
+
+      // 1. Internal caret position (relative to textarea top-left)
+      const caret = getCaretCoordinates(e.target, selectionEnd);
+
+      // 2. Textarea position on the screen
+      const rect = e.target.getBoundingClientRect();
+
+      setMenuPos({
+        // Top: Rect top + Caret offset - Textarea scroll + Window scroll - padding
+        top: rect.top + caret.top - e.target.scrollTop + window.scrollY - 600,
+        // Left: Rect left + Caret offset - Textarea scroll
+        left: rect.left + caret.left - e.target.scrollLeft + 110,
+      });
+
+      setSelectedText(selection);
+      setShowTools(true);
+    } else {
+      setShowTools(false);
+    }
+  };
 
   useEffect(() => {
     if (!page || page.length == 0) setOpen(false);
@@ -136,28 +208,50 @@ const Pages: React.FC<PageProps> = ({
   ]);
 
   // 2. The Auto-Save Effect is now safe
+  // 1. Add a ref to track if we are currently saving to avoid loops
+
+  const saving = useRef(false);
+  // 1. Add this Ref at the top of your component
+  const lastSavedSnapshot = useRef({ title: "", content: "", tags: "" });
+
   useEffect(() => {
     const currentPage = page?.[index];
-    if (!currentPage) return;
+    if (!currentPage || saving.current) return;
 
+    // 2. Compare against the PHYSICAL snapshot of what we last saved,
+    // NOT the 'page' prop which might be stale or mid-update.
+    const currentTagsStr = JSON.stringify(selectedTags);
     const isDirty =
-      title !== (currentPage.page || "") ||
-      content !== (currentPage.pageContent || "") ||
-      JSON.stringify(selectedTags) !== JSON.stringify(currentPage.tags || []);
+      title !== lastSavedSnapshot.current.title ||
+      content !== lastSavedSnapshot.current.content ||
+      currentTagsStr !== lastSavedSnapshot.current.tags;
 
     if (!isDirty) return;
 
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
 
-    autoSaveTimer.current = setTimeout(() => {
+    autoSaveTimer.current = setTimeout(async () => {
+      // 3. Update snapshot IMMEDIATELY to prevent double-triggering
+      // while the async save is in flight
+      lastSavedSnapshot.current = { title, content, tags: currentTagsStr };
+
+      saving.current = true;
       setEditingTitle(false);
-      save();
+
+      try {
+        await save();
+      } finally {
+        saving.current = false;
+      }
     }, 1000);
 
     return () => {
       if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     };
-  }, [title, content, selectedTags, index, page, save]); // 'save' is now stable
+
+    // 4. CRITICAL: Remove 'page' and 'save' from dependencies.
+    // We only want to trigger this when the USER changes the input fields.
+  }, [title, content, selectedTags, index]);
 
   // 4. Update handleDelete for Index Safety
   const handleDelete = async () => {
@@ -198,6 +292,40 @@ const Pages: React.FC<PageProps> = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [tagDialog]);
 
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (editingContent && textareaRef.current) {
+      const length = textareaRef.current.value.length;
+      // Move cursor to the end
+      textareaRef.current.setSelectionRange(length, length);
+      // Ensure it's focused (backup for autoFocus)
+      textareaRef.current.focus();
+    }
+  }, [editingContent]);
+
+  const handleSearch = async () => {
+    const answer = await searchWeb(query, darkMode, setLoadingResponse);
+
+    if (answer) {
+      // Wrap in a formatted block for better research organization
+      const formattedResult = `\n\n #### ${query}\n\n${answer}`;
+
+      setContent((prev) => prev + formattedResult);
+
+      // Automatically close dialog on success
+      setSecondaryDialogs(false);
+      setQuery("");
+    }
+  };
+
+  useEffect(() => {
+    if (newSelectedText !== selectedText) {
+      const updatedContent = content.replace(selectedText, newSelectedText);
+      setContent(updatedContent);
+    }
+  }, [newSelectedText]);
+
   return (
     <AnimatePresence>
       {open && (
@@ -232,7 +360,7 @@ const Pages: React.FC<PageProps> = ({
               darkMode
                 ? `${Theme.dark.secondary} text-white`
                 : `${Theme.light.secondary} text-black`
-            } p-5 pb-0 shadow-xl fixed top-0 left-8 w-[calc(100%-6rem)] h-full overflow-y-auto flex flex-col gap-5 myscrollbar`}
+            } p-5 pb-0 shadow-xl fixed top-0 left-8 w-[calc(100%-6rem)] h-full my-scrollbar flex flex-col gap-5 myscrollbar`}
           >
             {/* HEADER */}
             <div className="flex justify-between items-center mb-1">
@@ -248,6 +376,11 @@ const Pages: React.FC<PageProps> = ({
                   className={`shadow-lg p-2 rounded-full bg-blue-400 text-white h-max w-max cursor-pointer group hover:scale-105 transition flex justify-center items-center
             ${darkMode ? "border-[#626161]" : "border-black"}
           `}
+                  onClick={() => {
+                    setSecondaryDialogs(true);
+                    setSearching(false);
+                    setDownloading(true);
+                  }}
                 >
                   <FiDownload />
                   <Tooltip
@@ -260,6 +393,11 @@ const Pages: React.FC<PageProps> = ({
                   className={`shadow-lg p-2 rounded-full bg-blue-400 text-white h-max w-max cursor-pointer group hover:scale-105 transition flex justify-center items-center
             ${darkMode ? "border-[#626161]" : "border-black"}
           `}
+                  onClick={() => {
+                    setSecondaryDialogs(true);
+                    setDownloading(false);
+                    setSearching(true);
+                  }}
                 >
                   <FiSearch />
                   <Tooltip
@@ -268,6 +406,114 @@ const Pages: React.FC<PageProps> = ({
                     className="-top-1/2"
                   />
                 </button>
+                <AnimatePresence>
+                  {secondaryDialogs && (
+                    <>
+                      {/* Dimmed Backdrop */}
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setSecondaryDialogs(false)}
+                        className="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-[60]"
+                      />
+
+                      {/* Main Dialog Container */}
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                        className={`fixed top-[20%] left-1/2 -translate-x-1/2 w-full max-w-md z-[70] overflow-hidden rounded-2xl border shadow-2xl transition-all ${
+                          darkMode
+                            ? "bg-zinc-900/90 border-white/10 text-zinc-100 backdrop-blur-2xl"
+                            : "bg-white/90 border-gray-200 text-gray-900 backdrop-blur-2xl"
+                        }`}
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") {
+                            setSecondaryDialogs(false);
+                            setQuery("");
+                          }
+                        }}
+                      >
+                        {/* Header Section */}
+                        <div
+                          className={`px-4 py-3 flex items-center gap-2 border-b text-[10px] font-black uppercase tracking-[0.2em] ${
+                            darkMode
+                              ? "border-white/5 text-zinc-500"
+                              : "border-gray-100 text-gray-400"
+                          }`}
+                        >
+                          {searching ? (
+                            <FiSearch size={14} />
+                          ) : (
+                            <FiDownload size={14} />
+                          )}
+                          {searching ? "Web Search" : "Export Document"}
+                          {loadingResponse ? (
+                            <div className="h-1/2 w-1/4">
+                              <Loader2 />
+                            </div>
+                          ) : (
+                            <div></div>
+                          )}
+                        </div>
+
+                        <div className="p-4">
+                          {searching ? (
+                            <div className="relative group">
+                              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 opacity-30" />
+                              <input
+                                autoFocus
+                                value={query}
+                                onChange={(e) => setQuery(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (
+                                    e.key === "Enter" &&
+                                    query.trim() !== ""
+                                  ) {
+                                    handleSearch();
+                                    console.log(query);
+                                  }
+                                }}
+                                type="text"
+                                placeholder="Search notes, citations, or files..."
+                                className={`w-full pl-10 pr-4 py-3 rounded-xl outline-none transition-all text-sm ${
+                                  darkMode
+                                    ? "bg-white/5 focus:bg-white/10 border-transparent focus:border-blue-500/50 border"
+                                    : "bg-gray-50 focus:bg-white border-transparent focus:border-blue-500/30 border shadow-sm"
+                                }`}
+                              />
+                            </div>
+                          ) : downloading ? (
+                            <div className="space-y-2">
+                              <DownloadCard
+                                title="Current Page"
+                                desc="Export this document as a PDF"
+                                darkMode={darkMode}
+                              />
+                              <DownloadCard
+                                title="Entire Folder"
+                                desc="Export all pages in this folder as a PDF"
+                                darkMode={darkMode}
+                              />
+                            </div>
+                          ) : null}
+                        </div>
+
+                        {/* Shortcut Hint Footer */}
+                        <div
+                          className={`px-4 py-2 text-[9px] font-mono opacity-30 border-t flex justify-between ${
+                            darkMode ? "border-white/5" : "border-gray-100"
+                          }`}
+                        >
+                          <span>ESC to Close</span>
+                          <span>ENTER to Confirm</span>
+                        </div>
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
+
                 <button
                   className={`shadow-lg p-2 rounded-full bg-blue-400 text-white h-max w-max cursor-pointer group hover:scale-105 transition flex justify-center items-center
             ${darkMode ? "border-[#626161]" : "border-black"}
@@ -509,7 +755,11 @@ const Pages: React.FC<PageProps> = ({
               </AnimatePresence>
 
               <div>
-                <Toolbar darkMode={darkMode} />
+                <Toolbar
+                  darkMode={darkMode}
+                  setSelectedText={setNewSelectedText}
+                  selectedText={selectedText}
+                />
               </div>
             </div>
 
@@ -663,27 +913,60 @@ const Pages: React.FC<PageProps> = ({
 
                   <div className="text-left mt-4">
                     {editingContent ? (
-                      <textarea
-                        autoFocus
-                        className="text-md font-normal bg-transparent outline-none w-full max-h-[90vh] min-h-[75vh] myscrollbar overflow-y-auto resize-none"
-                        value={content}
-                        onChange={(e) => setContent(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && e.ctrlKey) saveContent();
-                          if (e.key === "Escape") setEditingContent(false);
-                        }}
-                        onBlur={saveContent}
-                      />
+                      <>
+                        <textarea
+                          ref={textareaRef}
+                          autoFocus
+                          className="text-md font-normal bg-transparent outline-none w-full max-h-[90vh] min-h-[75vh] myscrollbar overflow-y-auto resize-none whitespace-pre-wrap"
+                          value={content}
+                          onChange={(e) => setContent(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && e.ctrlKey) saveContent();
+                            if (e.key === "Escape") setEditingContent(false);
+                          }}
+                          onBlur={saveContent}
+                          onSelect={handleSelect}
+                        />
+                        {showTools && (
+                          <ToolbarFloat
+                            darkMode={darkMode}
+                            selectedText={selectedText}
+                            setSelectedText={setNewSelectedText}
+                            setEditingContent={setEditingContent}
+                            show={showTools}
+                            setShow={setShowTools}
+                            menuPos={menuPos}
+                          />
+                        )}
+                      </>
                     ) : (
                       <div
-                        className="cursor-text overflow-auto mynewscrollbar max-h-[90vh] min-h-[75vh]"
+                        className="cursor-text w-full max-h-[90vh] min-h-[75vh]"
                         style={{
                           whiteSpace: "pre-wrap",
                           maxHeight: "70vh", // or 75vh, choose what fits your layout
                         }}
                         onClick={() => setEditingContent(true)}
                       >
-                        {content.length == 0 ? "Temporary" : content}
+                        <div
+                          className="w-full max-w-none g-max whitespace-pre-wrap cursor-text  leading-4"
+                          onClick={() => setEditingContent(true)}
+                        >
+                          {content.length === 0 ? (
+                            <span className="opacity-50 italic">
+                              Start typing...
+                            </span>
+                          ) : (
+                            <div className="prose max-w-none prose-p:my-0 my-0 max-h-[60vh] min-h-[75vh] overflow-auto mynewscrollbar prose-headings:my-0 whitespace-pre-wrap">
+                              <ReactMarkdown
+                                rehypePlugins={[rehypeRaw]}
+                                remarkPlugins={[remarkBreaks]}
+                              >
+                                {content}
+                              </ReactMarkdown>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>

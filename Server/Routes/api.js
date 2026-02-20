@@ -59,7 +59,7 @@ const isQualityText = (text) => {
 const refineWithGroq = async (rawText, userQuery, fallbackSnippets) => {
   try {
     const completion = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+      model: "llama-3.1-8b-instant",
       messages: [
         {
           role: "system",
@@ -133,40 +133,50 @@ router.get("/scrape", async (req, res) => {
 router.post("/summarize", async (req, res) => {
   const { text, mode } = req.body;
 
-  // 1. Validation: Don't waste API tokens on empty or tiny selections
+  // 1. Validation
   if (!text || text.length < 50) {
-    return res.status(400).json({ error: "Selection too short to summarize." });
+    return res
+      .status(400)
+      .json({ error: "Selection too short (min 50 chars)." });
   }
 
+  // 2. Ultra-Strict Prompts (Forcing the AI to stop rambling)
   const prompts = {
-    bullets: "Summarize into 3-5 high-impact bullet points.",
-    narrative: "Summarize into one professional, academic paragraph.",
+    bullets:
+      "Provide exactly 3 short bullet points. Max 10 words per bullet. Focus on key actions.",
+    narrative:
+      "Provide exactly ONE short sentence. Maximum 25 words. Capture only the main takeaway.",
     facts:
-      "Extract only key entities (names, dates, prices, locations). No prose.",
+      "List only the top 5 names, dates, or locations as a comma-separated list. No prose.",
   };
 
   try {
     const completion = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+      model: "llama-3.1-8b-instant",
       messages: [
         {
           role: "system",
-          content: `You are a professional editor. ${prompts[mode] || prompts.bullets} Start immediately with the summary. No 'Here is...' or 'In conclusion...'`,
+          content: `You are a minimalist editor. Your goal is extreme compression. ${prompts[mode] || prompts.bullets} Output ONLY the summary. No introductory remarks, no conversational filler, and no 'Here is a summary'.`,
         },
         {
           role: "user",
-          // Truncate to ~15k words to stay safe within context/latency limits
-          content: text.substring(0, 60000),
+          content: text.substring(0, 30000), // Lowered to 30k for faster processing
         },
       ],
-      temperature: 0.2, // Lower = more consistent and less "creative" (better for summaries)
+      temperature: 0.1, // Near zero for strict adherence to word limits
+      max_tokens: 100, // Hard cap on response length to force brevity
     });
 
-    const summary = completion.choices[0]?.message?.content;
+    // 3. Robust Response Extraction (Prevents the 500 error if choices is empty)
+    const summary = completion.choices?.[0]?.message?.content?.trim();
+
+    if (!summary) {
+      throw new Error("Empty response from AI");
+    }
 
     res.json({ summary });
   } catch (error) {
-    console.error("Summarization Error:", error.message);
+    console.error("GROQ API ERROR:", error.message);
     res.status(500).json({ error: "Failed to generate summary." });
   }
 });
