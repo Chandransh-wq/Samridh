@@ -106,7 +106,7 @@ const Pages: React.FC<PageProps> = ({
 
       setMenuPos({
         // Top: Rect top + Caret offset - Textarea scroll + Window scroll - padding
-        top: rect.top + caret.top - e.target.scrollTop + window.scrollY - 600,
+        top: rect.top + caret.top - e.target.scrollTop + window.scrollY,
         // Left: Rect left + Caret offset - Textarea scroll
         left: rect.left + caret.left - e.target.scrollLeft + 110,
       });

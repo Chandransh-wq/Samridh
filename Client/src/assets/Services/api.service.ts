@@ -12,6 +12,11 @@ export interface summarizeProps {
   mode: string;
 }
 
+export interface expandProps {
+  text: string;
+  mode: string;
+}
+
 export const searchWeb = async (
   query: string,
   darkMode: boolean,
@@ -40,6 +45,29 @@ export const searchWeb = async (
 };
 
 export const summarize = async (
+  credintials: expandProps,
+  darkMode: boolean,
+) => {
+  try {
+    const response: any = await apiRequest(
+      publicApi,
+      "post",
+      `/api/expand`,
+      credintials,
+    );
+
+    toast.success("Retrieved Successfully", "", darkMode);
+    console.log("Search results:", response);
+
+    return response.summary;
+  } catch (error: any) {
+    const errorMessage = error.response?.data?.message || "Search failed";
+    toast.error("Error", errorMessage, darkMode);
+    return null;
+  }
+};
+
+export const expand = async (
   credintials: summarizeProps,
   darkMode: boolean,
 ) => {

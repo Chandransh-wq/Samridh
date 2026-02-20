@@ -180,5 +180,57 @@ router.post("/summarize", async (req, res) => {
     res.status(500).json({ error: "Failed to generate summary." });
   }
 });
+/**
+ * POST /expand
+ * Body: { text: "...", mode: "bullets" | "narrative" | "facts" }
+ */
+router.post("/expand", async (req, res) => {
+  const { text, mode } = req.body;
+
+  if (!text || text.length < 50) {
+    return res.status(400).json({ error: "Selection too short." });
+  }
+  const prompts = {
+    // Adding "Start immediately with '•'" is the only way to kill the intro paragraph
+    bullets:
+      "Provide exactly 3 bullet points. Each bullet must be a single paragraph of 2-3 sentences. Do not write an introduction or a summary paragraph. Start your response immediately with '•'.",
+    narrative:
+      "Expand into exactly two detailed paragraphs. Do not rephrase the input. Focus on technical implications and logic. No introductory sentence.",
+    facts:
+      "List 3 key concepts with a 2-sentence deep-dive for each. Start the list immediately with no header.",
+  };
+
+  try {
+    const completion = await groq.chat.completions.create({
+      model: "llama-3.1-8b-instant",
+      messages: [
+        {
+          role: "system",
+          content: `You are a precision editor. ${prompts[mode] || prompts.narrative} 
+          CRITICAL: Your output must contain ZERO introductory text. 
+          CRITICAL: If your response does not start with the content requested (like a bullet point), it is a failure. 
+          Output ONLY the expanded content.`,
+        },
+        {
+          role: "user",
+          content: text.substring(0, 30000),
+        },
+      ],
+      temperature: 0.1, // Set to 0.1 to force adherence to the "No Intro" rule
+      max_tokens: 500,
+    });
+
+    const expandedText = completion.choices?.[0]?.message?.content?.trim();
+
+    if (!expandedText) {
+      throw new Error("Empty response from AI");
+    }
+
+    res.json({ expandedText });
+  } catch (error) {
+    console.error("GROQ API ERROR:", error.message);
+    res.status(500).json({ error: "Failed to expand text." });
+  }
+});
 
 export default router;
