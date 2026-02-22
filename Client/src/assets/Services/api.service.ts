@@ -45,29 +45,6 @@ export const searchWeb = async (
 };
 
 export const summarize = async (
-  credintials: expandProps,
-  darkMode: boolean,
-) => {
-  try {
-    const response: any = await apiRequest(
-      publicApi,
-      "post",
-      `/api/expand`,
-      credintials,
-    );
-
-    toast.success("Retrieved Successfully", "", darkMode);
-    console.log("Search results:", response);
-
-    return response.summary;
-  } catch (error: any) {
-    const errorMessage = error.response?.data?.message || "Search failed";
-    toast.error("Error", errorMessage, darkMode);
-    return null;
-  }
-};
-
-export const expand = async (
   credintials: summarizeProps,
   darkMode: boolean,
 ) => {
@@ -83,6 +60,26 @@ export const expand = async (
     console.log("Search results:", response);
 
     return response.summary;
+  } catch (error: any) {
+    const errorMessage = error.response?.data?.message || "Search failed";
+    toast.error("Error", errorMessage, darkMode);
+    return null;
+  }
+};
+
+export const expand = async (credintials: expandProps, darkMode: boolean) => {
+  try {
+    const response: any = await apiRequest(
+      publicApi,
+      "post",
+      `/api/expand`,
+      credintials,
+    );
+
+    toast.success("Expanded Successfully", "", darkMode);
+    console.log("Search results:", response);
+
+    return response.expandedText;
   } catch (error: any) {
     const errorMessage = error.response?.data?.message || "Search failed";
     toast.error("Error", errorMessage, darkMode);

@@ -16,13 +16,13 @@ import Tooltip from "../Components/Tooltip";
 import { deletePage, updatePage } from "../assets/Services/user.service";
 import type { sendPage } from "./FolderDesktop";
 import { useFolders } from "../assets/hooks/useFolder";
-import getCaretCoordinates from "textarea-caret";
 import { searchWeb } from "../assets/Services/api.service";
 import Loader2 from "../Components/Loader2";
 import ReactMarkdown from "react-markdown";
 
 import rehypeRaw from "rehype-raw";
 import ToolbarFloat from "../Components/ToolbarFloat";
+import Editor from "../Components/editor";
 
 interface PageProps {
   page: PageType[];
@@ -92,23 +92,20 @@ const Pages: React.FC<PageProps> = ({
   const [showTools, setShowTools] = useState<boolean>(false);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
 
-  const handleSelect = (e: any) => {
-    const { selectionStart, selectionEnd, value } = e.target;
+  const handleSelect = (editor: any) => {
+    const { view, state } = editor;
+    const { from, to } = state.selection;
 
-    if (selectionStart !== selectionEnd) {
-      const selection = value.substring(selectionStart, selectionEnd);
+    if (from !== to) {
+      const selection = state.doc.textBetween(from, to);
 
-      // 1. Internal caret position (relative to textarea top-left)
-      const caret = getCaretCoordinates(e.target, selectionEnd);
-
-      // 2. Textarea position on the screen
-      const rect = e.target.getBoundingClientRect();
+      // Get the coordinates of the end of the selection (to)
+      const coords = view.coordsAtPos(to);
 
       setMenuPos({
-        // Top: Rect top + Caret offset - Textarea scroll + Window scroll - padding
-        top: rect.top + caret.top - e.target.scrollTop + window.scrollY,
-        // Left: Rect left + Caret offset - Textarea scroll
-        left: rect.left + caret.left - e.target.scrollLeft + 110,
+        // Position the menu slightly above the selection
+        top: coords.top + window.scrollY - 50,
+        left: coords.left + window.scrollX,
       });
 
       setSelectedText(selection);
@@ -320,9 +317,18 @@ const Pages: React.FC<PageProps> = ({
   };
 
   useEffect(() => {
-    if (newSelectedText !== selectedText) {
-      const updatedContent = content.replace(selectedText, newSelectedText);
-      setContent(updatedContent);
+    if (newSelectedText && newSelectedText !== selectedText) {
+      console.log("Updated Selected : " + newSelectedText);
+      setContent((prevContent) => {
+        // 1. Clean the AI response of leading/trailing whitespace/newlines
+        const sanitizedNewText = newSelectedText.trim();
+
+        // 2. Perform the replacement
+        // If selectedText is unique, this works. If not, use index-based replacement.
+        const updated = prevContent.replace(selectedText, sanitizedNewText);
+
+        return updated;
+      });
     }
   }, [newSelectedText]);
 
@@ -914,7 +920,7 @@ const Pages: React.FC<PageProps> = ({
                   <div className="text-left mt-4">
                     {editingContent ? (
                       <>
-                        <textarea
+                        {/* <textarea
                           ref={textareaRef}
                           autoFocus
                           className="text-md font-normal bg-transparent outline-none w-full max-h-[90vh] min-h-[75vh] myscrollbar overflow-y-auto resize-none whitespace-pre-wrap"
@@ -926,6 +932,13 @@ const Pages: React.FC<PageProps> = ({
                           }}
                           onBlur={saveContent}
                           onSelect={handleSelect}
+                        /> */}
+                        <Editor
+                          content={content}
+                          setContent={setContent}
+                          saveContent={saveContent}
+                          setEditingContent={setEditingContent}
+                          handleSelect={handleSelect}
                         />
                         {showTools && (
                           <ToolbarFloat

@@ -7,14 +7,20 @@ import {
   FiItalic,
   FiList,
   FiUnderline,
+  FiLoader, // Added for loading state
 } from "react-icons/fi";
 import Tooltip from "./Tooltip";
 import { AiOutlineExpand } from "react-icons/ai";
 import { MdShortText } from "react-icons/md";
-import { summarize, type summarizeProps } from "../assets/Services/api.service";
+import {
+  expand,
+  summarize,
+  type expandProps,
+  type summarizeProps,
+} from "../assets/Services/api.service";
 import { toast } from "../utils/Toast";
 
-// 1. Static Configuration outside to prevent re-allocation on every keystroke
+// Static Configuration
 const MARKDOWN_MAP: Record<string, [string, string]> = {
   bold: ["**", "**"],
   italic: ["*", "*"],
@@ -31,9 +37,10 @@ interface ActionButtonProps {
   hoverClass?: string;
   isActive?: boolean;
   onClick?: () => void;
+  isLoading?: boolean; // New prop for AI actions
 }
 
-// 2. Memoized Sub-components
+// Memoized Sub-components
 const ActionButton = React.memo(
   ({
     icon,
@@ -42,10 +49,11 @@ const ActionButton = React.memo(
     hoverClass,
     isActive,
     onClick,
+    isLoading,
   }: ActionButtonProps) => (
     <button
       onMouseDown={(e) => e.preventDefault()}
-      onClick={onClick}
+      onClick={isLoading ? undefined : onClick}
       className={`h-8 w-8 flex items-center justify-center rounded-xl transition-all duration-200 group relative ${
         isActive
           ? darkMode
@@ -55,14 +63,18 @@ const ActionButton = React.memo(
             (darkMode
               ? "hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100"
               : "hover:bg-gray-100 text-gray-500 hover:text-gray-900")
-      }`}
+      } ${isLoading ? "cursor-wait opacity-70" : ""}`}
     >
-      <span className="group-active:scale-90 transition-transform duration-100">
-        {icon}
+      <span
+        className={`group-active:scale-90 transition-transform duration-100 ${isLoading ? "animate-spin" : ""}`}
+      >
+        {isLoading ? <FiLoader size={16} /> : icon}
       </span>
-      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 translate-y-1 group-hover:translate-y-0 z-[100]">
-        <Tooltip text={label} darkMode={darkMode} />
-      </div>
+      {!isLoading && (
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 translate-y-1 group-hover:translate-y-0 z-[100]">
+          <Tooltip text={label} darkMode={darkMode} />
+        </div>
+      )}
     </button>
   ),
 );
@@ -86,7 +98,6 @@ interface ToolbarFloatProps {
   };
 }
 
-// 3. Optimized Main Component
 const ToolbarFloat: React.FC<ToolbarFloatProps> = ({
   show,
   setShow,
@@ -98,8 +109,11 @@ const ToolbarFloat: React.FC<ToolbarFloatProps> = ({
 }) => {
   const [fontOpen, setFontOpen] = useState(false);
   const [selectedFont, setSelectedFont] = useState("Inter");
+  const [loadingAction, setLoadingAction] = useState<
+    "summarize" | "expand" | null
+  >(null);
 
-  // 4. Memoized Formatting Logic
+  // Formatting Logic
   const isToolActive = useCallback(
     (toolId: string) => {
       if (!selectedText) return false;
@@ -125,10 +139,8 @@ const ToolbarFloat: React.FC<ToolbarFloatProps> = ({
         );
         setSelectedText(
           isList
-            ? lines
-                .map((l: any) => (l.startsWith("- ") ? l.slice(2) : l))
-                .join("\n")
-            : lines.map((l: any) => (l.trim() ? `- ${l}` : l)).join("\n"),
+            ? lines.map((l) => (l.startsWith("- ") ? l.slice(2) : l)).join("\n")
+            : lines.map((l) => (l.trim() ? `- ${l}` : l)).join("\n"),
         );
         return;
       }
@@ -146,23 +158,45 @@ const ToolbarFloat: React.FC<ToolbarFloatProps> = ({
   );
 
   const handleSummarize = async () => {
-    // Client-side Guard: Backend requires 50+ characters
     if (!selectedText || selectedText.length < 50) {
       toast.error("Error", "Selection too short (min 50 chars)", darkMode);
       return;
     }
 
-    const query: summarizeProps = {
-      text: selectedText,
-      mode: "narrative",
-    };
+    setLoadingAction("summarize");
+    try {
+      const query: summarizeProps = { text: selectedText, mode: "narrative" };
+      const result = await summarize(query, darkMode);
+      if (result && setSelectedText) setSelectedText(result);
+      console.log(selectedText);
+    } finally {
+      setLoadingAction(null);
+    }
+  };
 
-    // 1. Await the actual string result from the API
-    const result = await summarize(query, darkMode);
+  const handleExpand = async () => {
+    if (!selectedText || selectedText.length < 50) {
+      toast.error("Error", "Selection too short (min 50 chars)", darkMode);
+      return;
+    }
 
-    // 2. Pass the STRING result to your setter
-    if (result && setSelectedText) {
-      setSelectedText(result);
+    // Dynamic Mode Detection: Switch to bullets if input looks like a list
+    const inferredMode =
+      selectedText.trim().startsWith("-") ||
+      selectedText.trim().startsWith("•") ||
+      selectedText.includes("\n-")
+        ? "bullets"
+        : "narrative";
+
+    setLoadingAction("expand");
+    try {
+      const query: expandProps = { text: selectedText, mode: inferredMode };
+      const result = await expand(query, darkMode);
+      if (result && setSelectedText) setSelectedText(result);
+
+      console.log(selectedText);
+    } finally {
+      setLoadingAction(null);
     }
   };
 
@@ -187,11 +221,7 @@ const ToolbarFloat: React.FC<ToolbarFloatProps> = ({
             initial={{ opacity: 0, scale: 0.95, y: 10, x: "-50%" }}
             animate={{ opacity: 1, scale: 1, y: 0, x: "-50%" }}
             exit={{ opacity: 0, scale: 0.95, y: 10, x: "-50%" }}
-            style={{
-              top: menuPos.top,
-              left: menuPos.left,
-              position: "fixed",
-            }}
+            style={{ top: menuPos.top, left: menuPos.left, position: "fixed" }}
             className={`z-50 flex items-center shadow-2xl p-1.5 gap-1 rounded-2xl border backdrop-blur-2xl transition-all duration-200 ${
               darkMode
                 ? "bg-zinc-900/90 border-white/10 ring-1 ring-white/5 text-zinc-400"
@@ -204,6 +234,7 @@ const ToolbarFloat: React.FC<ToolbarFloatProps> = ({
                 label="Summarize"
                 darkMode={darkMode}
                 onClick={handleSummarize}
+                isLoading={loadingAction === "summarize"}
                 hoverClass={
                   darkMode
                     ? "hover:bg-purple-500/20 text-purple-400"
@@ -214,7 +245,13 @@ const ToolbarFloat: React.FC<ToolbarFloatProps> = ({
                 icon={<AiOutlineExpand size={18} />}
                 label="Expand"
                 darkMode={darkMode}
-                hoverClass="hover:text-blue-400"
+                onClick={handleExpand}
+                isLoading={loadingAction === "expand"}
+                hoverClass={
+                  darkMode
+                    ? "hover:bg-blue-500/20 text-blue-400"
+                    : "hover:bg-blue-100 text-blue-600"
+                }
               />
             </div>
 
@@ -273,7 +310,11 @@ const ToolbarFloat: React.FC<ToolbarFloatProps> = ({
                     initial={{ opacity: 0, scale: 0.9, y: 5 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.9, y: 5 }}
-                    className={`absolute bottom-full left-0 mb-3 w-40 rounded-xl shadow-2xl border p-1 backdrop-blur-xl ${darkMode ? "bg-zinc-900/95 border-zinc-800" : "bg-white/95 border-gray-200"}`}
+                    className={`absolute bottom-full left-0 mb-3 w-40 rounded-xl shadow-2xl border p-1 backdrop-blur-xl ${
+                      darkMode
+                        ? "bg-zinc-900/95 border-zinc-800"
+                        : "bg-white/95 border-gray-200"
+                    }`}
                   >
                     {FONTS.map((f) => (
                       <button

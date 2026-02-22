@@ -156,7 +156,7 @@ router.post("/summarize", async (req, res) => {
       messages: [
         {
           role: "system",
-          content: `You are a minimalist editor. Your goal is extreme compression. ${prompts[mode] || prompts.bullets} Output ONLY the summary. No introductory remarks, no conversational filler, and no 'Here is a summary'.`,
+          content: `You are a minimalist editor. Respond using clean Markdown. Your goal is extreme compression. ${prompts[mode] || prompts.bullets} Output ONLY the summary. No introductory remarks, no conversational filler, and no 'Here is a summary'.`,
         },
         {
           role: "user",
@@ -206,7 +206,7 @@ router.post("/expand", async (req, res) => {
       messages: [
         {
           role: "system",
-          content: `You are a precision editor. ${prompts[mode] || prompts.narrative} 
+          content: `You are a precision editor. Respond using clean Markdown. ${prompts[mode] || prompts.narrative} 
           CRITICAL: Your output must contain ZERO introductory text. 
           CRITICAL: If your response does not start with the content requested (like a bullet point), it is a failure. 
           Output ONLY the expanded content.`,
@@ -228,7 +228,7 @@ router.post("/expand", async (req, res) => {
 
     res.json({ expandedText });
   } catch (error) {
-    console.error("GROQ API ERROR:", error.message);
+    console.error("GROQ API ERROR:  ", error.message);
     res.status(500).json({ error: "Failed to expand text." });
   }
 });
